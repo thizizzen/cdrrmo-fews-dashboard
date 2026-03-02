@@ -9,7 +9,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Lock this down to your Vercel URL after deploying
+    allow_origins=["https://cdrrmo-fews-dashboard.vercel.app"],  # Lock this down to your Vercel URL after deploying
     allow_methods=["*"],
     allow_headers=["*"],
 )
