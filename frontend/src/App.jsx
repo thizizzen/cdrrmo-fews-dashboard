@@ -1352,7 +1352,6 @@ export default function App() {
                   <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8 }}>
                     <div style={{ fontSize:24 }}>🔋</div>
                     <div style={{ color:"var(--text-3)", fontSize:12, fontWeight:600 }}>No battery data yet</div>
-                    <div style={{ color:"var(--text-3)", fontSize:10, fontFamily:"var(--mono)" }}>Data will appear once the system starts transmitting</div>
                   </div>
                 )}
               </div>
