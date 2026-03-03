@@ -458,6 +458,87 @@ function ChangePasswordModal({ onClose }) {
   );
 }
 
+// ─── ADD USER MODAL ───────────────────────────────────────────────────────────
+
+const EMPTY_ADD_FORM = { name: "", email: "", password: "", role: "Viewer", department: "Operations" };
+
+function AddUserModal({ onAdd, onClose }) {
+  const [form, setForm]     = useState(EMPTY_ADD_FORM);
+  const [error, setError]   = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const set = (key, val) => { setForm(f => ({ ...f, [key]: val })); setError(""); };
+
+  const handle = () => {
+    if (!form.name.trim())        { setError("Full name is required."); return; }
+    if (!form.email.trim())       { setError("Email is required."); return; }
+    if (!form.password.trim())    { setError("Password is required."); return; }
+    if (form.password.length < 6) { setError("Password must be at least 6 characters."); return; }
+    setSaving(true);
+    setTimeout(() => { onAdd({ ...form, id: Date.now() }); setSaving(false); onClose(); }, 600);
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-box" style={{ alignItems: "stretch", gap: 16, maxWidth: 420 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="modal-icon" style={{ color: "var(--blue)", marginBottom: 0, fontSize: 22 }}>👤</div>
+          <div className="modal-title">Add New User</div>
+        </div>
+        <div className="modal-msg" style={{ textAlign: "left", marginBottom: 0, marginTop: -8 }}>
+          Create a new account for a CDRRMO team member.
+        </div>
+        <div style={{ height: 1, background: "var(--border)" }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="settings-field">
+            <label className="settings-label">Full Name</label>
+            <input className="settings-input" placeholder="e.g. Juan dela Cruz"
+              value={form.name} onChange={e => set("name", e.target.value)} autoFocus />
+          </div>
+          <div className="settings-field">
+            <label className="settings-label">Email</label>
+            <input className="settings-input" type="email" placeholder="e.g. juan@cdrrmo.gov.ph"
+              value={form.email} onChange={e => set("email", e.target.value)} />
+          </div>
+          <div className="settings-field">
+            <label className="settings-label">Password</label>
+            <input className="settings-input" type="password" placeholder="Min. 6 characters"
+              value={form.password} onChange={e => set("password", e.target.value)} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div className="settings-field">
+              <label className="settings-label">Role</label>
+              <select className="settings-input" value={form.role} onChange={e => set("role", e.target.value)} style={{ cursor: "pointer" }}>
+                <option>Admin</option>
+                <option>Operator</option>
+                <option>Viewer</option>
+              </select>
+            </div>
+            <div className="settings-field">
+              <label className="settings-label">Department</label>
+              <select className="settings-input" value={form.department} onChange={e => set("department", e.target.value)} style={{ cursor: "pointer" }}>
+                <option>Operations</option>
+                <option>Field Unit A</option>
+                <option>Field Unit B</option>
+                <option>Command Post</option>
+                <option>Admin Office</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        {error && <div className="settings-error">{error}</div>}
+        <div className="modal-actions" style={{ marginTop: 4 }}>
+          <button className="modal-btn modal-cancel" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="modal-btn" style={{ background: "var(--blue)", color: "#000", opacity: saving ? 0.7 : 1 }}
+            onClick={handle} disabled={saving}>
+            {saving ? "Adding…" : "Add User"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── PROFILE DROPDOWN ─────────────────────────────────────────────────────────
 
 function ProfileDropdown({ user, onSave, onClose }) {
@@ -987,6 +1068,7 @@ function LogsPage() {
 function SettingsPage() {
   const [showEmail, setShowEmail]       = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showAddUser, setShowAddUser]   = useState(false);
   const [notifs, setNotifs]             = useState({ autoSiren: true, sms: true, email: false });
   const [users, setUsers] = useState([
     { id:1, name:"Carlo Dela Cruz", role:"Admin",    department:"Operations",   email:"carlo@cdrrmo.gov.ph" },
@@ -1011,8 +1093,19 @@ function SettingsPage() {
   };
   const doRemove = () => { setUsers(prev => prev.filter(x => x.id !== confirmRemove.id)); setConfirmRemove(null); };
 
+  const doAdd = (newUser) => {
+    setUsers(prev => [...prev, {
+      id:         newUser.id,
+      name:       newUser.name.trim(),
+      role:       newUser.role,
+      department: newUser.department,
+      email:      newUser.email.trim(),
+    }]);
+  };
+
   return (
     <>
+      {showAddUser  && <AddUserModal onAdd={doAdd} onClose={() => setShowAddUser(false)} />}
       {showEmail    && <ChangeEmailModal    onClose={() => setShowEmail(false)} />}
       {showPassword && <ChangePasswordModal onClose={() => setShowPassword(false)} />}
       {confirmSave   && <ConfirmModal icon="👤" iconColor="var(--blue)" title={`Save Changes for ${confirmSave.name}?`} message={`Role → ${getDraft(confirmSave).role} · Department → ${getDraft(confirmSave).department}`} confirmLabel="Yes, Save" onConfirm={doSave} onCancel={() => setConfirmSave(null)} />}
@@ -1031,8 +1124,15 @@ function SettingsPage() {
           </div>
         </div>
         <div className="page-card">
-          <div className="page-card-title">Manage Users</div>
-          <div className="page-card-sub">Update roles and departments for all system users.</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <div>
+              <div className="page-card-title">Manage Users</div>
+              <div className="page-card-sub" style={{ marginBottom: 0 }}>Update roles and departments for all system users.</div>
+            </div>
+            <button className="mu-add-btn" onClick={() => setShowAddUser(true)} title="Add new user">
+              <span style={{ fontSize: 16, lineHeight: 1, marginRight: 5 }}>+</span>Add User
+            </button>
+          </div>
           <div className="mu-list">
             {users.map(u => {
               const d = getDraft(u); const changed = d.role !== u.role || d.department !== u.department;

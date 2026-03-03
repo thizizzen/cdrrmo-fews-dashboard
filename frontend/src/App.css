@@ -1715,3 +1715,24 @@ body {
   cursor: not-allowed !important;
   pointer-events: none;
 }
+
+.mu-add-btn {
+  display: flex;
+  align-items: center;
+  background: rgba(56,189,248,0.12);
+  color: var(--blue);
+  border: 1px solid rgba(56,189,248,0.28);
+  border-radius: 10px;
+  padding: 7px 14px;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.mu-add-btn:hover {
+  background: rgba(56,189,248,0.22);
+  border-color: rgba(56,189,248,0.45);
+}
