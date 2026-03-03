@@ -34,7 +34,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 // FEWS 1 base data
 const FEWS1_BASE = {
-  id: 1, name: "FEWS 1", location: "Bolbok, Batangas City",
+  id: 1, name: "FEWS 1", location: "Bolbok",
   lat: 13.7703472, lng: 121.0525449,
   status: "safe", battery: 0, waterLevel: 0,
   description: "Deployed along the upper tributary of Sta. Rita River. Monitors early upstream surge from heavy rainfall in the Mataas na Gulod watershed.",
