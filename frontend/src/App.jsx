@@ -793,8 +793,8 @@ function DateRangeFilter({ from, to, onChange }) {
 
   return (
     <div className="fdd-wrap drf-wrap" ref={ref}>
-      <button type="button" className={`fdd-trigger ${hasFilter ? "fdd-trigger-active" : ""}`}
-        onClick={() => setOpen(o => !o)} style={{ minWidth: 148 }}>
+      <button type="button" className={`fdd-trigger ${hasFilter ? "fdd-trigger-active" : ""} ${open ? "fdd-trigger-open" : ""}`}
+       onClick={() => setOpen(o => !o)} style={{ minWidth: 148 }}>
         <span className="fdd-icon" style={{ fontSize: 12 }}>📅</span>
         <span className="fdd-label">{displayLabel}</span>
         <svg className="fdd-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none">
