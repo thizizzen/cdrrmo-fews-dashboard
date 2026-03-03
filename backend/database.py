@@ -4,7 +4,7 @@ import os
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://cdrrmo_admin:wvBRk5TLHSI50DY6LbcFMzx9hwOboYWm@dpg-d6j5mtffte5s73da3vgg-a.singapore-postgres.render.com/cdrrmo_fews"
+    "postgresql://postgres.psxuwsogetsxcwgdkcxp:NTs4yXh2aezi5yVL@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
 )
 
 def get_db():
@@ -15,7 +15,6 @@ def init_db():
     conn = get_db()
     cur  = conn.cursor()
 
-    # Users table — stores login credentials + role
     cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id         SERIAL PRIMARY KEY,
@@ -28,7 +27,6 @@ def init_db():
         )
     """)
 
-    # FEWS sensor readings table
     cur.execute("""
         CREATE TABLE IF NOT EXISTS sensor_readings (
             id             SERIAL PRIMARY KEY,

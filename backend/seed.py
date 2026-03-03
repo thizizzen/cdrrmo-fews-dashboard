@@ -3,7 +3,7 @@ from auth import hash_password
 
 ADMIN_NAME       = "John Doe"
 ADMIN_EMAIL      = "johndoe@cdrrmo.gov.ph"
-ADMIN_PASSWORD   = "cdrrmo2026"      # ← change this after first login!
+ADMIN_PASSWORD   = "cdrrmo2026"
 ADMIN_ROLE       = "Admin"
 ADMIN_DEPARTMENT = "Operations"
 
