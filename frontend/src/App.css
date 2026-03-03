@@ -259,12 +259,26 @@ body {
   border: 1px solid rgba(34,197,94,0.2);
 }
 
+.connection.waiting {
+  background: rgba(148,163,184,0.08);
+  color: var(--text-3);
+  border: 1px solid rgba(148,163,184,0.15);
+}
+
 .pulse-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--green);
   animation: pulse 2s infinite;
+}
+
+.wait-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+  opacity: 0.5;
 }
 
 @keyframes pulse {
@@ -659,9 +673,12 @@ body {
 .login-input {
   background: var(--bg-raised); border: 1px solid var(--border); border-radius: 10px;
   padding: 11px 14px; color: var(--text-1); font-family: var(--font); font-size: 14px;
-  outline: none; transition: border-color 0.2s;
+  outline: none; transition: border-color 0.2s, box-shadow 0.2s;
 }
-.login-input:focus        { border-color: var(--blue); }
+.login-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(56,189,248,0.15);
+}
 .login-input::placeholder { color: var(--text-3); }
 
 .login-error {
@@ -725,9 +742,12 @@ body {
 .settings-input {
   background: var(--bg-raised); border: 1px solid var(--border); border-radius: 10px;
   padding: 10px 14px; color: var(--text-1); font-family: var(--font); font-size: 13px;
-  outline: none; transition: border-color 0.2s; width: 100%;
+  outline: none; transition: border-color 0.2s, box-shadow 0.2s; width: 100%;
 }
-.settings-input:focus { border-color: var(--blue); }
+.settings-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(56,189,248,0.15);
+}
 
 .settings-error {
   font-size: 11px; color: var(--red);
@@ -796,9 +816,12 @@ body {
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
   padding: 5px 10px; color: var(--text-1); font-family: var(--font);
   font-size: 11px; font-weight: 600; outline: none; cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.mu-select:focus { border-color: var(--blue); }
+.mu-select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(56,189,248,0.15);
+}
 
 .mu-save-btn {
   background: rgba(56,189,248,0.15); color: var(--blue);
@@ -831,10 +854,16 @@ body {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  transition: opacity 0.3s;
+  transition: opacity 0.3s, filter 0.3s;
 }
 
 .uc-card-offline { opacity: 0.5; border-left-color: #334155; }
+
+.uc-card-waiting {
+  opacity: 0.55;
+  filter: grayscale(0.35);
+  border-left-color: #334155;
+}
 
 .uc-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .uc-card-left   { display: flex; align-items: center; gap: 12px; }
@@ -904,6 +933,11 @@ body {
   font-weight: 600;
   outline: none;
   width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.uc-inline-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(56,189,248,0.15);
 }
 
 .uc-desc-section { display: flex; flex-direction: column; gap: 8px; }
@@ -945,9 +979,12 @@ body {
   outline: none;
   width: 100%;
   resize: vertical;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.uc-desc-textarea:focus { border-color: var(--blue); }
+.uc-desc-textarea:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(56,189,248,0.15);
+}
 
 .uc-thr-section { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; border-top: 1px solid var(--border); }
 .uc-thr-label   { font-size: 10px; font-weight: 700; color: var(--text-3); letter-spacing: 0.07em; text-transform: uppercase; }
@@ -985,9 +1022,14 @@ body {
   font-size: 13px;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
 }
-.cdp-trigger:hover { border-color: rgba(56,189,248,0.4); }
+.cdp-trigger:hover,
+.cdp-trigger:focus {
+  border-color: rgba(56,189,248,0.5);
+  box-shadow: 0 0 0 2px rgba(56,189,248,0.15);
+}
 
 .cdp-icon        { font-size: 13px; flex-shrink: 0; }
 .cdp-val         { flex: 1; color: var(--text-1); font-size: 13px; }
@@ -1379,11 +1421,13 @@ body {
   font-family: var(--font);
   font-size: 13px;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   height: 36px;
 }
-
-.logs-search-input:focus { border-color: var(--blue); }
+.logs-search-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px rgba(56,189,248,0.15);
+}
 .logs-search-input::placeholder { color: var(--text-3); }
 
 .logs-search-clear {
@@ -1525,14 +1569,12 @@ body {
 
 /* ================================
    CUSTOM FILTER DROPDOWN  (fdd-*)
-   Matches the export-menu card style.
 ================================ */
 .fdd-wrap {
   position: relative;
   flex-shrink: 0;
 }
 
-/* The trigger button — same height as search bar (36px) */
 .fdd-trigger {
   height: 36px;
   display: flex;
@@ -1548,16 +1590,21 @@ body {
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color 0.2s, background 0.2s, color 0.2s;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s;
   min-width: 130px;
 }
 
 .fdd-trigger:hover {
-  border-color: rgba(255,255,255,0.22);
+  border-color: rgba(56,189,248,0.4);
   color: var(--text-1);
 }
 
-/* Active = a filter value is actually selected (not "All") */
+.fdd-trigger:focus {
+  border-color: rgba(56,189,248,0.6);
+  box-shadow: 0 0 0 2px rgba(56,189,248,0.15);
+}
+
 .fdd-trigger-active {
   background: rgba(56,189,248,0.10);
   border-color: rgba(56,189,248,0.35) !important;
@@ -1574,7 +1621,6 @@ body {
 .fdd-trigger:focus .fdd-chevron,
 .fdd-trigger:hover .fdd-chevron { color: var(--text-2); }
 
-/* Dropdown panel — same card style as date picker */
 .fdd-menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -1591,7 +1637,6 @@ body {
   animation: cdp-fade 0.12s ease;
 }
 
-/* Each option row */
 .fdd-item {
   display: block;
   width: 100%;
@@ -1617,13 +1662,10 @@ body {
 
 /* ================================
    SMART DATE FILTER  (drf-* / mc-*)
-   One calendar, click=single day,
-   second click=range, third=reset.
 ================================ */
 
 .drf-wrap { position: relative; }
 
-/* Panel — right-aligned, single calendar width */
 .drf-panel {
   position: absolute;
   top: calc(100% + 6px);
@@ -1640,7 +1682,6 @@ body {
 
 .drf-panel-single { width: 234px; }
 
-/* Calendar header */
 .mc-header {
   display: flex;
   align-items: center;
@@ -1655,7 +1696,6 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* Footer: hint text + clear button */
 .drf-footer {
   display: flex;
   justify-content: space-between;
@@ -1676,18 +1716,15 @@ body {
   text-overflow: ellipsis;
 }
 
-/* In-range day highlight */
 .mc-in-range {
   background: rgba(56,189,248,0.13) !important;
   color: var(--blue) !important;
   border-radius: 0 !important;
 }
 
-/* Range endpoints */
 .mc-range-from { border-radius: 6px 0 0 6px !important; }
 .mc-range-to   { border-radius: 0 6px 6px 0 !important; }
 
-/* When from === to (single day), keep full radius */
 .mc-range-from.mc-range-to {
   border-radius: 6px !important;
 }
