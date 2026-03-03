@@ -1311,7 +1311,7 @@ export default function App() {
                                 navigator.clipboard.writeText(`${f.lat}, ${f.lng}`);
                                 setCopiedId(f.id);
                                 setTimeout(() => setCopiedId(null), 1500);
-                              }} style={{ marginTop:"7px", padding:"3px 8px", background: copiedId===f.id?"#22c55e":cfg.color, color:"#000", border:"none", borderRadius:"4px", cursor:"pointer", fontWeight:"700", fontSize:"10px", width:"100%", transition:"background 0.2s" }}>
+                              }} style={{ marginTop:"7px", padding:"3px 8px", background: copiedId===f.id?"#22c55e":cfg.color, color:"#blue", border:"none", borderRadius:"4px", cursor:"pointer", fontWeight:"700", fontSize:"10px", width:"100%", transition:"background 0.2s" }}>
                                 {copiedId===f.id ? "✓ Copied!" : "📋 Copy Coordinates"}
                               </button>
                             </div>
@@ -1352,6 +1352,7 @@ export default function App() {
                   <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8 }}>
                     <div style={{ fontSize:24 }}>🔋</div>
                     <div style={{ color:"var(--text-3)", fontSize:12, fontWeight:600 }}>No battery data yet</div>
+                    <div style={{ color:"var(--text-3)", fontSize:10, fontFamily:"var(--mono)" }}>Data will appear once the system starts transmitting</div>
                   </div>
                 )}
               </div>
