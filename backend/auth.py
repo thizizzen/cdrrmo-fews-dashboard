@@ -3,7 +3,7 @@ import jwt
 import os
 from datetime import datetime, timedelta
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "cdrrmo_fews_secret_2025")
+SECRET_KEY = os.environ.get("SECRET_KEY", "cdrrmo_fews_secret_2026")
 ALGORITHM  = "HS256"
 
 def hash_password(plain: str) -> str:
