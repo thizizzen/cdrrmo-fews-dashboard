@@ -118,20 +118,16 @@ function _fmtTime(d) {
 
 // Convert a raw DB log row into the shape the table expects
 function parseLog(row) {
-  // Parse the UTC timestamp from the DB
+  // Supabase returns timestamps in local server time (PHT) without timezone info.
+  // Parse as-is by replacing the space separator — no offset needed.
   const raw = row.timestamp;
-  // If the string has no timezone indicator, treat it as UTC by appending Z
-  const utcStr = (typeof raw === "string" && !raw.endsWith("Z") && !raw.includes("+"))
-    ? raw.replace(" ", "T") + "Z"
-    : raw;
-  const d = new Date(utcStr);
-  // Add 8 hours to get Philippine Time (UTC+8)
-  const ph = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+  const normalized = typeof raw === "string" ? raw.replace(" ", "T") : raw;
+  const ph = new Date(normalized);
   return {
     id:      row.id,
     date:    _fmtDate(ph),
     time:    _fmtTime(ph),
-    rawDate: d,  // keep rawDate as UTC for filtering
+    rawDate: ph,
     station: row.station,
     type:    row.type,
     msg:     row.message,
