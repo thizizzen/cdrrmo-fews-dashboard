@@ -63,6 +63,10 @@ class UpdateUserRequest(BaseModel):
     role:       Optional[str] = None
     department: Optional[str] = None
 
+class UpdateProfileRequest(BaseModel):
+    name:  Optional[str] = None
+    photo: Optional[str] = None  # base64 data URL
+
 # ─── AUTH ─────────────────────────────────────────────────────────────────────
 
 @app.post("/login")
@@ -86,7 +90,36 @@ def login(req: LoginRequest):
             "department": user["department"],
             "email":      user["email"],
             "id":         user["id"],
+            "photo":      user.get("photo"),
         }
+    finally:
+        cur.close()
+        conn.close()
+
+# ─── PROFILE ──────────────────────────────────────────────────────────────────
+
+@app.put("/users/me")
+def update_profile(req: UpdateProfileRequest, user=Depends(get_current_user)):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
+        user_id = int(user["sub"])
+        fields = []
+        values = []
+        if req.name  is not None: fields.append("name = %s");  values.append(req.name)
+        if req.photo is not None: fields.append("photo = %s"); values.append(req.photo)
+        if not fields:
+            raise HTTPException(status_code=400, detail="Nothing to update")
+        values.append(user_id)
+        cur.execute(
+            f"UPDATE users SET {', '.join(fields)} WHERE id = %s RETURNING id, name, email, role, department, photo",
+            values
+        )
+        conn.commit()
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="User not found")
+        return row
     finally:
         cur.close()
         conn.close()

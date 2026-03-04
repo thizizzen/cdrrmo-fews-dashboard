@@ -570,15 +570,17 @@ function AddUserModal({ onAdd, onClose, token }) {
 }
 
 // ─── PROFILE DROPDOWN ─────────────────────────────────────────────────────────
+// CHANGES: removed dob field, added token prop, handleSave now calls PUT /users/me
 
-function ProfileDropdown({ user, onSave, onClose }) {
+function ProfileDropdown({ user, token, onSave, onClose }) {
   const ref                   = useRef();
   const fileRef               = useRef();
   const [editing, setEditing] = useState(false);
   const [name, setName]       = useState(user.name);
-  const [dob, setDob]         = useState(user.dob || "");
   const [photo, setPhoto]     = useState(user.photo || null);
+  const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
+  const [error, setError]     = useState("");
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose(); };
@@ -594,11 +596,26 @@ function ProfileDropdown({ user, onSave, onClose }) {
     reader.readAsDataURL(file);
   };
 
-  const handleSave = () => {
-    const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
-    onSave({ ...user, name, dob, photo, initials });
-    setSaved(true);
-    setTimeout(() => { setSaved(false); setEditing(false); }, 1200);
+  const handleSave = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/users/me`, {
+        method:  "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ name, photo }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      const updated = await res.json();
+      const initials = updated.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+      onSave({ ...user, name: updated.name, photo: updated.photo, initials });
+      setSaved(true);
+      setTimeout(() => { setSaved(false); setEditing(false); }, 1200);
+    } catch {
+      setError("Failed to save. Try again.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -655,13 +672,10 @@ function ProfileDropdown({ user, onSave, onClose }) {
             <label className="settings-label">Change Name</label>
             <input className="settings-input" value={name} onChange={e => setName(e.target.value)} placeholder="Full name" />
           </div>
-          <div className="settings-field">
-            <label className="settings-label">Date of Birth</label>
-            <CustomDatePicker value={dob} onChange={setDob} />
-          </div>
+          {error && <div className="settings-error" style={{ fontSize: 11 }}>{error}</div>}
           <div className="pd-edit-actions">
-            <button className="pd-btn" onClick={() => setEditing(false)}>Cancel</button>
-            <button className="pd-save-btn" onClick={handleSave}>{saved ? "✓ Saved" : "Save"}</button>
+            <button className="pd-btn" onClick={() => { setEditing(false); setError(""); }}>Cancel</button>
+            <button className="pd-save-btn" onClick={handleSave} disabled={saving}>{saving ? "Saving…" : saved ? "✓ Saved" : "Save"}</button>
           </div>
         </>
       )}
@@ -1488,7 +1502,7 @@ export default function App() {
               </div>
               {showProfileDropdown && createPortal(
                 <div style={{ position:"fixed", top:"64px", right:"16px", zIndex:99999 }}>
-                  <ProfileDropdown user={user} onSave={u => { setUser(u); sessionStorage.setItem("user", JSON.stringify(u)); }} onClose={() => setShowProfileDropdown(false)} />
+                  <ProfileDropdown user={user} token={token} onSave={u => { setUser(u); sessionStorage.setItem("user", JSON.stringify(u)); }} onClose={() => setShowProfileDropdown(false)} />
                 </div>, document.body
               )}
             </div>

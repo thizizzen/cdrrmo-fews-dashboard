@@ -23,8 +23,14 @@ def init_db():
             password   TEXT NOT NULL,
             role       TEXT NOT NULL DEFAULT 'Viewer',
             department TEXT NOT NULL DEFAULT 'Operations',
+            photo      TEXT,
             created_at TIMESTAMP DEFAULT NOW()
         )
+    """)
+
+    # Add photo column to existing databases that don't have it yet
+    cur.execute("""
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT
     """)
 
     cur.execute("""
