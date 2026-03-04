@@ -109,11 +109,13 @@ function _fmtTime(d) { return `${_pad(d.getHours())}:${_pad(d.getMinutes())}:${_
 // Convert a raw DB log row into the shape the table expects
 function parseLog(row) {
   const d = new Date(row.timestamp);
+  // Convert to Philippine Time for display
+  const ph = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
   return {
     id:      row.id,
-    date:    _fmtDate(d),
-    time:    _fmtTime(d),
-    rawDate: d,
+    date:    _fmtDate(ph),
+    time:    _fmtTime(ph),
+    rawDate: d,  // keep rawDate as UTC for filtering to work correctly
     station: row.station,
     type:    row.type,
     msg:     row.message,
@@ -124,7 +126,7 @@ const LOG_TYPE_CFG = {
   info:    { label: "INFO",    color: "#94a3b8", bg: "rgba(148,163,184,0.10)" },
   warning: { label: "WARNING", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
   danger:  { label: "DANGER",  color: "#ef4444", bg: "rgba(239,68,68,0.12)"  },
-  system:  { label: "SYSTEM",  color: "#38bdf8", bg: "rgba(56,189,248,0.12)" },
+  system:  { label: "ACTIVITY",  color: "#38bdf8", bg: "rgba(56,189,248,0.12)" },
 };
 
 const LOG_ALL_TYPES = ["info", "warning", "danger", "system"];
@@ -1402,7 +1404,7 @@ export default function App() {
       await fetch(`${API_BASE}/logs`, {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
-        body:    JSON.stringify({ station, type, message }),
+        body: JSON.stringify({ station, type, message, user_name: user.name }),
       });
     } catch {
       // Silently ignore — logging should never break the UI
