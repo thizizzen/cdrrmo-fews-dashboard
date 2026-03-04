@@ -100,11 +100,21 @@ const DAYS_SHORT = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 // ─── LOG HELPERS ──────────────────────────────────────────────────────────────
 
 function _pad(n) { return String(n).padStart(2, "0"); }
+
 function _fmtDate(d) {
   const mo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   return `${mo[d.getMonth()]} ${_pad(d.getDate())}, ${d.getFullYear()}`;
 }
-function _fmtTime(d) { return `${_pad(d.getHours())}:${_pad(d.getMinutes())}:${_pad(d.getSeconds())}`; }
+
+// ── FIX 1: 12-hour time with AM/PM ──
+function _fmtTime(d) {
+  let hours   = d.getHours();
+  const mins  = _pad(d.getMinutes());
+  const secs  = _pad(d.getSeconds());
+  const ampm  = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  return `${_pad(hours)}:${mins}:${secs} ${ampm}`;
+}
 
 // Convert a raw DB log row into the shape the table expects
 function parseLog(row) {
@@ -123,10 +133,10 @@ function parseLog(row) {
 }
 
 const LOG_TYPE_CFG = {
-  info:    { label: "INFO",    color: "#94a3b8", bg: "rgba(148,163,184,0.10)" },
-  warning: { label: "WARNING", color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
-  danger:  { label: "DANGER",  color: "#ef4444", bg: "rgba(239,68,68,0.12)"  },
-  system:  { label: "ACTIVITY",  color: "#38bdf8", bg: "rgba(56,189,248,0.12)" },
+  info:    { label: "INFO",     color: "#94a3b8", bg: "rgba(148,163,184,0.10)" },
+  warning: { label: "WARNING",  color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  danger:  { label: "DANGER",   color: "#ef4444", bg: "rgba(239,68,68,0.12)"  },
+  system:  { label: "ACTIVITY", color: "#38bdf8", bg: "rgba(56,189,248,0.12)" },
 };
 
 const LOG_ALL_TYPES = ["info", "warning", "danger", "system"];
@@ -140,7 +150,7 @@ function exportToXLSX(rows) {
   const doIt = () => {
     const wb = window.XLSX.utils.book_new();
     const ws = window.XLSX.utils.aoa_to_sheet(data);
-    ws["!cols"] = [{ wch: 18 }, { wch: 10 }, { wch: 10 }, { wch: 9 }, { wch: 80 }];
+    ws["!cols"] = [{ wch: 18 }, { wch: 14 }, { wch: 10 }, { wch: 9 }, { wch: 80 }];
     window.XLSX.utils.book_append_sheet(wb, ws, "FEWS Logs");
     window.XLSX.writeFile(wb, `FEWS_Logs_${Date.now()}.xlsx`);
   };
@@ -175,7 +185,7 @@ function exportToPDF(rows) {
       headStyles: { fillColor: [17, 29, 53], textColor: [226, 232, 240], fontStyle: "bold" },
       alternateRowStyles: { fillColor: [245, 248, 252] },
       columnStyles: {
-        0: { cellWidth: 80 }, 1: { cellWidth: 55 },
+        0: { cellWidth: 80 }, 1: { cellWidth: 65 },
         2: { cellWidth: 55 }, 3: { cellWidth: 55 }, 4: { cellWidth: "auto" },
       },
       theme: "grid",
@@ -664,7 +674,8 @@ function ProfileDropdown({ user, token, onSave, onClose }) {
 
 // ─── UNIT CONTROL PAGE ────────────────────────────────────────────────────────
 
-function UnitControlPage({ allFews, fews1Connected, userRole, addLog }) {
+// ── FIX 3: accept userName prop so log messages include who did the action ──
+function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog }) {
   const [fewsData, setFewsData]           = useState(allFews.map(f => ({ ...f })));
   const [units, setUnits]                 = useState(Object.fromEntries(allFews.map(f => ([f.id, fews1Connected && f.isLive ? true : false]))));
   const [thresholds, setThr]              = useState(Object.fromEntries(allFews.map(f => [f.id, { warning: 2.5, danger: 4.0 }])));
@@ -684,9 +695,10 @@ function UnitControlPage({ allFews, fews1Connected, userRole, addLog }) {
   const confirmToggle = () => {
     const { fews, turningOn } = pendingToggle;
     setUnits(prev => ({ ...prev, [fews.id]: !prev[fews.id] }));
+    // ── FIX 3: include userName in the log message ──
     addLog({
       station: fews.name, type: "system",
-      message: `${fews.name} (${fews.location}) has been powered ${turningOn ? "ON" : "OFF"}`,
+      message: `${fews.name} (${fews.location}) has been powered ${turningOn ? "ON" : "OFF"} by ${userName}`,
     });
     setPendingToggle(null);
   };
@@ -699,13 +711,13 @@ function UnitControlPage({ allFews, fews1Connected, userRole, addLog }) {
     if (thr.warning !== prev.warning) {
       addLog({
         station: f.name, type: "info",
-        message: `${f.name} (${f.location}) warning threshold has been updated from ${prev.warning} cm to ${thr.warning} cm`,
+        message: `${f.name} (${f.location}) warning threshold updated from ${prev.warning} cm to ${thr.warning} cm by ${userName}`,
       });
     }
     if (thr.danger !== prev.danger) {
       addLog({
         station: f.name, type: "info",
-        message: `${f.name} (${f.location}) danger threshold has been updated from ${prev.danger} cm to ${thr.danger} cm`,
+        message: `${f.name} (${f.location}) danger threshold updated from ${prev.danger} cm to ${thr.danger} cm by ${userName}`,
       });
     }
     setPrevThr(p => ({ ...p, [id]: { ...thr } }));
@@ -725,7 +737,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, addLog }) {
     setEditing(prev => { const n = {...prev}; delete n[id]; return n; });
     addLog({
       station: f.name, type: "info",
-      message: `${f.name} (${f.location}) station information has been updated`,
+      message: `${f.name} (${f.location}) station information updated by ${userName}`,
     });
     setInfoSaved(prev => ({ ...prev, [id]: true }));
     setTimeout(() => setInfoSaved(prev => ({ ...prev, [id]: false })), 2000);
@@ -1043,7 +1055,7 @@ function ExportMenu({ filtered, exporting, setExporting }) {
   );
 }
 
-// LogsPage now fetches real data from /logs and polls every 10s
+// LogsPage fetches real data from /logs and polls every 10s
 function LogsPage({ token }) {
   const [logs, setLogs]                       = useState([]);
   const [loading, setLoading]                 = useState(true);
@@ -1063,16 +1075,13 @@ function LogsPage({ token }) {
       .finally(() => setLoading(false));
   }, [token]);
 
-  // Initial fetch
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
-  // Poll every 10s so new entries appear automatically
   useEffect(() => {
     const interval = setInterval(fetchLogs, 10000);
     return () => clearInterval(interval);
   }, [fetchLogs]);
 
-  // Build station options dynamically from real log data
   const allStations = useMemo(() => {
     const seen = new Set();
     const order = ["System", "FEWS 1"];
@@ -1158,10 +1167,11 @@ function LogsPage({ token }) {
             </div>
           ) : pageRows.map((l, i) => {
             const cfg = LOG_TYPE_CFG[l.type] || LOG_TYPE_CFG["system"];
+            // ── FIX 2: station tag displayed as all-caps ──
             return (
               <div key={l.id} className={`logs-row ${i%2===1 ? "logs-row-alt":""}`}>
                 <span className="logs-col-date"><span className="logs-date-day">{l.date}</span><span className="logs-date-time">{l.time}</span></span>
-                <span className="logs-col-station"><span className="logs-station-tag">{l.station}</span></span>
+                <span className="logs-col-station"><span className="logs-station-tag">{l.station.toUpperCase()}</span></span>
                 <span className="logs-col-type"><span className="logs-type-badge" style={{ color:cfg.color, background:cfg.bg, border:`1px solid ${cfg.color}30` }}>{cfg.label}</span></span>
                 <span className="logs-col-msg" style={{ color: l.type==="danger"?"var(--red)":l.type==="warning"?"var(--amber)":"var(--text-2)" }}>{l.msg}</span>
               </div>
@@ -1421,8 +1431,8 @@ export default function App() {
         station: f.name,
         type: turningOn ? "warning" : "system",
         message: turningOn
-          ? `Siren for ${f.name} (${f.location}) has been manually activated`
-          : `Siren for ${f.name} (${f.location}) has been silenced`,
+          ? `Siren for ${f.name} (${f.location}) has been manually activated by ${user.name}`
+          : `Siren for ${f.name} (${f.location}) has been silenced by ${user.name}`,
       });
     }
   };
@@ -1440,7 +1450,6 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    // Fire logout log before clearing session
     addLog({
       station: "System", type: "system",
       message: `${user.name} (${user.role}, ${user.department}) has logged out of the system`,
@@ -1791,7 +1800,8 @@ export default function App() {
           </div>
         )}
 
-        {activeNav === "UnitControl" && <UnitControlPage allFews={allFews} fews1Connected={fews1Connected} userRole={user.role} addLog={addLog} />}
+        {/* ── FIX 3: pass userName={user.name} to UnitControlPage ── */}
+        {activeNav === "UnitControl" && <UnitControlPage allFews={allFews} fews1Connected={fews1Connected} userRole={user.role} userName={user.name} addLog={addLog} />}
         {activeNav === "Logs"        && <LogsPage token={token} />}
         {activeNav === "Settings"    && <SettingsPage userRole={user.role} token={token} addLog={addLog} />}
       </div>
