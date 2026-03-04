@@ -118,16 +118,19 @@ function _fmtTime(d) {
 
 // Convert a raw DB log row into the shape the table expects
 function parseLog(row) {
-  // Supabase returns timestamps in local server time (PHT) without timezone info.
-  // Parse as-is by replacing the space separator — no offset needed.
   const raw = row.timestamp;
-  const normalized = typeof raw === "string" ? raw.replace(" ", "T") : raw;
-  const ph = new Date(normalized);
+  // Supabase TIMESTAMP columns return UTC with no "Z" suffix.
+  // Force UTC parsing by appending Z, then convert to PHT (UTC+8).
+  const utcStr = typeof raw === "string"
+    ? raw.replace(" ", "T").replace(/Z?$/, "Z")
+    : raw;
+  const utc = new Date(utcStr);
+  const ph  = new Date(utc.getTime() + 8 * 60 * 60 * 1000);
   return {
     id:      row.id,
     date:    _fmtDate(ph),
     time:    _fmtTime(ph),
-    rawDate: ph,
+    rawDate: utc,
     station: row.station,
     type:    row.type,
     msg:     row.message,
@@ -1347,7 +1350,7 @@ function SettingsPage({ userRole, userName, token, addLog }) {
                         <select className="mu-select" value={d.department} onChange={e => handleDraft(u.id, "department", e.target.value)}>
                           <option>Operations</option><option>Field Unit A</option><option>Field Unit B</option><option>Command Post</option><option>Admin Office</option>
                         </select>
-                        <button className="mu-save-btn" disabled={!changed} onClick={() => setConfirmSave(u)}>{savedIds[u.id] ? "Saved" : "Save"}</button>
+                        <button className="mu-save-btn" disabled={!changed} onClick={() => setConfirmSave(u)}>{savedIds[u.id] ? "✓" : "Save"}</button>
                         <button className="mu-remove-btn" onClick={() => setConfirmRemove(u)}>✕</button>
                       </div>
                     </div>
