@@ -1203,7 +1203,7 @@ function LogsPage({ token }) {
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
 
-function SettingsPage({ userRole, token, addLog }) {
+function SettingsPage({ userRole, userName, token, addLog }) {
   const [showEmail, setShowEmail]           = useState(false);
   const [showPassword, setShowPassword]     = useState(false);
   const [showAddUser, setShowAddUser]       = useState(false);
@@ -1250,13 +1250,13 @@ function SettingsPage({ userRole, token, addLog }) {
         if (d.role !== u.role) {
           addLog({
             station: "System", type: "system",
-            message: `${u.name}'s role has been changed from ${u.role} to ${d.role}`,
+            message: `${u.name}'s role has been changed from ${u.role} to ${d.role} by ${userName}`,
           });
         }
         if (d.department !== u.department) {
           addLog({
             station: "System", type: "system",
-            message: `${u.name}'s department has been changed from ${u.department} to ${d.department}`,
+            message: `${u.name}'s department has been changed from ${u.department} to ${d.department} by ${userName}`,
           });
         }
         setUsers(prev => prev.map(x => x.id === u.id ? { ...x, ...d } : x));
@@ -1809,7 +1809,7 @@ export default function App() {
         {/* ── FIX 3: pass userName={user.name} to UnitControlPage ── */}
         {activeNav === "UnitControl" && <UnitControlPage allFews={allFews} fews1Connected={fews1Connected} userRole={user.role} userName={user.name} addLog={addLog} />}
         {activeNav === "Logs"        && <LogsPage token={token} />}
-        {activeNav === "Settings"    && <SettingsPage userRole={user.role} token={token} addLog={addLog} />}
+        {activeNav === "Settings"    && <SettingsPage userRole={user.role} userName={user.name} token={token} addLog={addLog} />}
       </div>
     </div>
   );
