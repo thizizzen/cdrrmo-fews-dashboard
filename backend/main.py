@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends, Header
+from mqtt_bridge import start_bridge_thread  
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -19,6 +20,7 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     init_db()
+    start_bridge_thread()
 
 # ─── AUTH HELPERS ─────────────────────────────────────────────────────────────
 
