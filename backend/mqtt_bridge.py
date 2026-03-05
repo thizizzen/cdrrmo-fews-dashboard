@@ -49,7 +49,7 @@ def on_disconnect(client, userdata, rc):
         print(f"[BRIDGE] Unexpected disconnect rc={rc}, will auto-reconnect")
 
 def start_bridge():
-    client = mqtt.Client(client_id="cdrrmo_render_bridge", clean_session=True)
+    client = mqtt.Client(client_id="cdrrmo_render_bridge_01", protocol=mqtt.MQTTv311, clean_session=True)
     client.on_connect    = on_connect
     client.on_message    = on_message
     client.on_disconnect = on_disconnect
