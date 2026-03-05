@@ -90,7 +90,6 @@ def login(req: LoginRequest):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         token = create_token(user["id"], user["role"])
 
-        # Write login event to system_logs
         cur.execute("""
             INSERT INTO system_logs (station, type, message, user_name)
             VALUES (%s, %s, %s, %s)
@@ -177,6 +176,24 @@ def latest():
             key = row["device_id"].lower().replace("-", "_").replace(" ", "_")
             result[key] = dict(row)
         return result
+    finally:
+        cur.close()
+        conn.close()
+
+@app.get("/data/history")
+def history():
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
+        cur.execute("""
+            SELECT device_id, water_level_cm, timestamp
+            FROM sensor_readings
+            WHERE device_id = 'fews_1'
+              AND timestamp >= NOW() - INTERVAL '12 hours'
+            ORDER BY timestamp ASC
+        """)
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
     finally:
         cur.close()
         conn.close()
