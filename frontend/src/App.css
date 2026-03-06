@@ -210,6 +210,11 @@ body {
   opacity: 0.92;
 }
 
+/* CDRRMO seal has more padding in the image so bump it up */
+.topbar-seal-img:last-child {
+  height: 54px;
+  width: 54px;
+}
 .top-left { display: flex; align-items: center; gap: 16px; }
 
 .title-block h1 {
