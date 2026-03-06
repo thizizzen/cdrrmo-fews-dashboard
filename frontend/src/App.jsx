@@ -1641,23 +1641,19 @@ export default function App() {
 
       {/* ─── SIDEBAR ─── */}
       <aside className={`sidebar ${sidebarOpen ? "" : "collapsed"}`}>
+        {/* Brand row — logo + name + toggle button inline */}
         <div className="brand">
-          {/* Logo icon — hidden when collapsed */}
           {sidebarOpen && <div className="brand-icon">🌊</div>}
-          {/* CDRRMO text only — no subtitle */}
           <div className={`brand-text ${sidebarOpen ? "" : "hidden"}`}>
             <div className="brand-name">CDRRMO</div>
           </div>
-        </div>
-        <nav className="nav">
-          {navItems.map(item => (
-            <button key={item.key} className={`nav-btn ${activeNav === item.key ? "active" : ""}`} onClick={() => setActiveNav(item.key)}>
-              <span className="nav-icon">{item.icon}</span>
-              <span className={`nav-label ${sidebarOpen ? "" : "hidden"}`}>{item.label}</span>
-            </button>
-          ))}
-          {/* Sidebar toggle — styled exactly like a nav button */}
-          <button className="nav-btn sidebar-toggle-nav" onClick={() => setSidebarOpen(o => !o)} title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
+          {/* Toggle always visible in brand row, right-aligned */}
+          <button
+            className="nav-btn"
+            style={{ marginLeft: sidebarOpen ? "auto" : "0", padding: "10px", flexShrink: 0 }}
+            onClick={() => setSidebarOpen(o => !o)}
+            title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+          >
             <span className="nav-icon">
               {sidebarOpen ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1673,8 +1669,15 @@ export default function App() {
                 </svg>
               )}
             </span>
-            <span className={`nav-label ${sidebarOpen ? "" : "hidden"}`}>Collapse</span>
           </button>
+        </div>
+        <nav className="nav">
+          {navItems.map(item => (
+            <button key={item.key} className={`nav-btn ${activeNav === item.key ? "active" : ""}`} onClick={() => setActiveNav(item.key)}>
+              <span className="nav-icon">{item.icon}</span>
+              <span className={`nav-label ${sidebarOpen ? "" : "hidden"}`}>{item.label}</span>
+            </button>
+          ))}
         </nav>
         <div className="sidebar-footer">
           <button className="logout-btn" onClick={() => setShowLogoutModal(true)}>
