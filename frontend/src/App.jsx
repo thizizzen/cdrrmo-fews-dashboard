@@ -1435,7 +1435,6 @@ export default function App() {
   const [fews1Live, setFews1Live]           = useState(null);
   const [fews1Connected, setFews1Connected] = useState(false);
   const [lastUpdated, setLastUpdated]       = useState(null);
-  const [waterHistory, setWaterHistory]     = useState([]); // [{time, value}]
 
   const [user, setUser] = useState(() => {
     try {
@@ -1529,47 +1528,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // ─── HISTORY POLL (real water level readings every 5 min) ────────────────
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const res  = await fetch(`${API_BASE}/data/history`);
-        if (!res.ok) return;
-        const rows = await res.json();
-        if (!Array.isArray(rows) || rows.length === 0) return;
-
-        // Bucket readings into 5-min slots over the last hour (12 slots + now)
-        const nowPH = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
-        const slots = Array.from({ length: 13 }, (_, i) => {
-          const slotTime = new Date(nowPH.getTime() - (12 - i) * 5 * 60 * 1000);
-          slotTime.setSeconds(0, 0);
-          return { time: slotTime, value: null };
-        });
-
-        rows.forEach(row => {
-          const rawTs  = row.timestamp;
-          const utcStr = typeof rawTs === "string"
-            ? rawTs.replace(" ", "T").replace(/Z?$/, "Z")
-            : rawTs;
-          const rowTime = new Date(new Date(utcStr).toLocaleString("en-US", { timeZone: "Asia/Manila" }));
-          // Find closest 5-min slot
-          const closestIdx = slots.reduce((best, slot, idx) => {
-            const diff = Math.abs(rowTime - slot.time);
-            return diff < Math.abs(rowTime - slots[best].time) ? idx : best;
-          }, 0);
-          if (Math.abs(rowTime - slots[closestIdx].time) <= 2.5 * 60 * 1000) {
-            slots[closestIdx].value = row.water_level_cm;
-          }
-        });
-
-        setWaterHistory(slots);
-      } catch {}
-    };
-    fetchHistory();
-    const interval = setInterval(fetchHistory, 15000); // refresh every 15s matching Arduino
-    return () => clearInterval(interval);
-  }, []);
-
   const allFews = useMemo(() => {
     let fews1 = { ...FEWS1_BASE };
     if (fews1Live) {
@@ -1587,89 +1545,39 @@ export default function App() {
 
   if (!isLoggedIn) return <Login onLogin={handleLogin} />;
 
-  // ─── WATER LEVEL CHART — real-time history, zone bands ─────────────────────
-  const waterTimeLabels = waterHistory.length > 0
-    ? waterHistory.map((slot, i) => {
-        const hh = String(slot.time.getHours()).padStart(2, "0");
-        const mm = String(slot.time.getMinutes()).padStart(2, "0");
-        return i === waterHistory.length - 1 ? "Now" : `${hh}:${mm}`;
-      })
-    : Array.from({ length: 13 }, (_, i) => {
-        const nowPH = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
-        const t = new Date(nowPH.getTime() - (12 - i) * 5 * 60 * 1000);
-        return i === 12 ? "Now" : `${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}`;
-      });
+  const phNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+  phNow.setMinutes(Math.floor(phNow.getMinutes() / 5) * 5, 0, 0);
+  const timeLabels = Array.from({ length: 13 }, (_, i) => {
+    const t  = new Date(phNow.getTime() - (12 - i) * 5 * 60 * 1000);
+    const hh = String(t.getHours()).padStart(2, "0");
+    const mm = String(t.getMinutes()).padStart(2, "0");
+    return i === 12 ? "Now" : `${hh}:${mm}`;
+  });
 
   const waterChartData = {
-    labels: waterTimeLabels,
-    datasets: [
-      // Zone band datasets (filled areas, no line, no points)
-      {
-        label: "_safe",
-        data: waterTimeLabels.map(() => 200),
-        borderWidth: 0, pointRadius: 0, fill: { target: { value: 0 }, above: "rgba(34,197,94,0.10)", below: "transparent" },
-        backgroundColor: "transparent", tension: 0,
-      },
-      {
-        label: "_warning",
-        data: waterTimeLabels.map(() => 300),
-        borderWidth: 0, pointRadius: 0, fill: { target: { value: 200 }, above: "rgba(245,158,11,0.10)", below: "transparent" },
-        backgroundColor: "transparent", tension: 0,
-      },
-      {
-        label: "_critical",
-        data: waterTimeLabels.map(() => 500),
-        borderWidth: 0, pointRadius: 0, fill: { target: { value: 300 }, above: "rgba(239,68,68,0.10)", below: "transparent" },
-        backgroundColor: "transparent", tension: 0,
-      },
-      // Actual FEWS 1 water level line
-      {
-        label: "FEWS 1",
-        data: waterHistory.length > 0
-          ? waterHistory.map(slot => slot.value)
-          : waterTimeLabels.map(() => null),
-        borderColor: "#22c55e",
-        backgroundColor: "transparent",
-        tension: 0.4, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2,
-        spanGaps: true,
-      },
-    ],
+    labels: timeLabels,
+    datasets: allFews.map((f, i) => ({
+      label: f.name,
+      data: Array.from({ length: 13 }, (_, j) => {
+        if (!fews1Connected) return null;
+        const base = f.waterLevel || 0;
+        return +(base * (0.3 + j * 0.054) + Math.random() * 0.2).toFixed(2);
+      }),
+      borderColor: FEWS_COLORS[i],
+      backgroundColor: FEWS_COLORS[i].replace(")", ",0.08)").replace("rgb", "rgba"),
+      tension: 0.4, pointRadius: 3, pointHoverRadius: 6, borderWidth: 2,
+    })),
   };
 
   const waterChartOptions = {
     responsive: true, maintainAspectRatio: false,
-    interaction: { mode: "index", intersect: false },
     plugins: {
-      legend: {
-        display: true,
-        labels: {
-          color: "#94a3b8", font: { size: 9 }, boxWidth: 10,
-          // Hide the internal zone band datasets from legend
-          filter: (item) => !item.text.startsWith("_"),
-        },
-      },
-      tooltip: {
-        backgroundColor: "#1e293b", titleColor: "#fff", bodyColor: "#94a3b8",
-        borderColor: "#334155", borderWidth: 1,
-        filter: (item) => !item.dataset.label.startsWith("_"),
-        callbacks: {
-          label: (ctx) => ctx.parsed.y !== null ? `${ctx.dataset.label}: ${ctx.parsed.y} cm` : null,
-        },
-      },
+      legend: { display: true, labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 10 } },
+      tooltip: { backgroundColor: "#1e293b", titleColor: "#fff", bodyColor: "#94a3b8", borderColor: "#334155", borderWidth: 1 },
     },
     scales: {
-      y: {
-        min: 0, max: 500,
-        grid: { color: "rgba(255,255,255,0.05)" },
-        ticks: {
-          color: "#64748b", font: { size: 10 }, stepSize: 100,
-          callback: (v) => `${v}cm`,
-        },
-      },
-      x: {
-        grid: { color: "rgba(255,255,255,0.04)" },
-        ticks: { color: "#64748b", maxRotation: 0, minRotation: 0, font: { size: 9 } },
-      },
+      y: { beginAtZero: true, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "#64748b", font: { size: 10 } } },
+      x: { grid: { color: "rgba(255,255,255,0.04)" }, ticks: { color: "#64748b", maxRotation: 0, minRotation: 0, font: { size: 9 } } },
     },
   };
 
