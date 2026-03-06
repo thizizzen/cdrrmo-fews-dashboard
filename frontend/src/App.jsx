@@ -389,22 +389,26 @@ function CustomDatePicker({ value, onChange }) {
 // ─── MAP HELPERS ──────────────────────────────────────────────────────────────
 
 function FlyToStation({ fews }) {
-  const map = useMap();
+  const map    = useMap();
+  const fewsId = fews?.id ?? null;
+  // Depend only on the station ID — prevents re-flying every 5s when live data updates
   useEffect(() => {
-    if (fews) map.flyTo([fews.lat, fews.lng], 16, { duration: 1 });
-  }, [fews]);
+    if (!fews) return;
+    map.setView([fews.lat, fews.lng], 16, { animate: true, duration: 0.6 });
+  }, [fewsId]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
 
 function OpenPopup({ fews, markerRefs }) {
+  const fewsId = fews?.id ?? null;
   useEffect(() => {
-    if (!fews) return;
+    if (!fewsId) return;
     const t = setTimeout(() => {
-      const markerRef = markerRefs.current[fews.id];
+      const markerRef = markerRefs.current[fewsId];
       if (markerRef) markerRef.openPopup();
-    }, 900);
+    }, 700);
     return () => clearTimeout(t);
-  }, [fews]);
+  }, [fewsId]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
 
@@ -1422,7 +1426,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn]                   = useState(false);
   const [showLogoutModal, setShowLogoutModal]         = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-  const [sidebarOpen, setSidebarOpen]                 = useState(true);
+  const [sidebarOpen, setSidebarOpen]                 = useState(false);
   const [selectedFEWS, setSelectedFEWS]               = useState(null);
   const [activeNav, setActiveNav]                     = useState("Dashboard");
   const markerRefs = useRef({});
@@ -1578,19 +1582,53 @@ export default function App() {
   };
 
   const batteryData = {
-    labels: allFews.map(f => f.name),
-    datasets: [{ label: "Battery %", data: allFews.map(f => fews1Connected ? f.battery : null),
-      backgroundColor: allFews.map(f => f.battery > 80 ? "#22c55e" : f.battery > 50 ? "#f59e0b" : "#ef4444"),
-      borderRadius: 6 }],
+    // Pad labels to 4 slots — leaves blank space for future FEWS units
+    labels: ["FEWS 1", "FEWS 2", "FEWS 3", "FEWS 4"],
+    datasets: [{
+      label: "Battery %",
+      data: [
+        fews1Connected ? allFews[0]?.battery ?? null : null,
+        null, // FEWS 2 — future
+        null, // FEWS 3 — future
+        null, // FEWS 4 — future
+      ],
+      backgroundColor: [
+        fews1Connected
+          ? (allFews[0]?.battery > 80 ? "#22c55e" : allFews[0]?.battery > 50 ? "#f59e0b" : "#ef4444")
+          : "rgba(255,255,255,0.06)",
+        "rgba(255,255,255,0.04)",
+        "rgba(255,255,255,0.04)",
+        "rgba(255,255,255,0.04)",
+      ],
+      borderRadius: 6,
+      barThickness: 28,
+    }],
   };
 
   const batteryOptions = {
-    indexAxis: "y", responsive: true, maintainAspectRatio: false,
-    plugins: { legend: { display: false }, tooltip: { backgroundColor: "#1e293b", titleColor: "#fff", bodyColor: "#94a3b8", borderColor: "#334155", borderWidth: 1 } },
-    scales: {
-      x: { max: 100, grid: { color: "rgba(255,255,255,0.05)" }, ticks: { color: "#64748b", font: { size: 9 }, callback: v => `${v}%` } },
-      y: { grid: { display: false }, ticks: { color: "#94a3b8", font: { size: 10 } } },
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: "#1e293b", titleColor: "#fff", bodyColor: "#94a3b8",
+        borderColor: "#334155", borderWidth: 1,
+        callbacks: { label: ctx => ctx.parsed.y !== null ? `${ctx.parsed.y}%` : "No data" },
+      },
     },
+    scales: {
+      y: {
+        min: 0, max: 100,
+        grid: { color: "rgba(255,255,255,0.05)" },
+        ticks: { color: "#64748b", font: { size: 9 }, callback: v => `${v}%` },
+      },
+      x: {
+        grid: { display: false },
+        ticks: { color: "#94a3b8", font: { size: 10 } },
+      },
+    },
+    // Align bars to the top (base at max, grows downward)
+    layout: { padding: { top: 4 } },
   };
 
   const alertCount      = allFews.filter(f => f.status !== "safe").length;
