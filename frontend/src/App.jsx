@@ -1583,14 +1583,11 @@ export default function App() {
 
   const batteryData = {
     // Pad labels to 4 slots — leaves blank space for future FEWS units
-    labels: ["FEWS 1", "FEWS 2", "FEWS 3", "FEWS 4"],
+    labels: ["FEWS 1"],
     datasets: [{
       label: "Battery %",
       data: [
         fews1Connected ? allFews[0]?.battery ?? null : null,
-        null, // FEWS 2 — future
-        null, // FEWS 3 — future
-        null, // FEWS 4 — future
       ],
       backgroundColor: [
         fews1Connected
