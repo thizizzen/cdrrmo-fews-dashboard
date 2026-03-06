@@ -203,8 +203,8 @@ body {
 }
 
 .topbar-seal-img {
-  height: 38px;
-  width: 38px;
+  height: 46px;
+  width: 46px;
   object-fit: contain;
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
   opacity: 0.92;
