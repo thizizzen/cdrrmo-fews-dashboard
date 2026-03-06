@@ -99,8 +99,10 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 4px 28px;
+  padding: 0 4px;
+  height: 64px;
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .brand-icon             { font-size: 22px; flex-shrink: 0; }
