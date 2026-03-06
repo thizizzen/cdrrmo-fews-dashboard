@@ -1499,6 +1499,7 @@ export default function App() {
         }
       } catch {
         setFews1Connected(false);
+        setFews1Live(null); 
       }
     };
     poll();
