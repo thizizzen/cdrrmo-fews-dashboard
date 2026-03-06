@@ -1703,6 +1703,11 @@ export default function App() {
               <div className="subtitle">{pageInfo.sub}</div>
             </div>
           </div>
+          {/* ─── CENTER SEALS ─── */}
+          <div className="topbar-seals">
+            <img src="/batscity-seal.png" alt="Batangas City Seal" className="topbar-seal-img" />
+            <img src="/cdrrmo-seal.png"   alt="CDRRMO Seal"        className="topbar-seal-img" />
+          </div>
           <div className="top-right">
             {alertCount > 0 && (
               <div className="alert-badge">

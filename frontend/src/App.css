@@ -191,6 +191,25 @@ body {
   z-index: 500;
 }
 
+/* Seals — centered absolutely so left/right sides stay balanced */
+.topbar-seals {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.topbar-seal-img {
+  height: 38px;
+  width: 38px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+  opacity: 0.92;
+}
+
 .top-left { display: flex; align-items: center; gap: 16px; }
 
 .title-block h1 {
