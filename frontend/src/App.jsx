@@ -1582,21 +1582,15 @@ export default function App() {
   };
 
   const batteryData = {
-    // Pad labels to 4 slots — leaves blank space for future FEWS units
-    labels: ["FEWS 1"],
+    labels: allFews.map(f => f.name),
     datasets: [{
       label: "Battery %",
-      data: [
-        fews1Connected ? allFews[0]?.battery ?? null : null,
-      ],
-      backgroundColor: [
+      data: allFews.map(f => fews1Connected ? f.battery : null),
+      backgroundColor: allFews.map(f =>
         fews1Connected
-          ? (allFews[0]?.battery > 80 ? "#22c55e" : allFews[0]?.battery > 50 ? "#f59e0b" : "#ef4444")
-          : "rgba(255,255,255,0.06)",
-        "rgba(255,255,255,0.04)",
-        "rgba(255,255,255,0.04)",
-        "rgba(255,255,255,0.04)",
-      ],
+          ? (f.battery > 80 ? "#22c55e" : f.battery > 50 ? "#f59e0b" : "#ef4444")
+          : "rgba(255,255,255,0.06)"
+      ),
       borderRadius: 6,
       barThickness: 28,
     }],
@@ -1664,7 +1658,14 @@ export default function App() {
         </nav>
         <div className="sidebar-footer">
           <button className="logout-btn" onClick={() => setShowLogoutModal(true)}>
-            <span className="nav-icon">→</span>
+            <span className="nav-icon">
+              {/* Door with arrow-out icon */}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7" />
+                <polyline points="17 15 20 12 17 9" />
+                <line x1="20" y1="12" x2="9" y2="12" />
+              </svg>
+            </span>
             <span className={`nav-label ${sidebarOpen ? "" : "hidden"}`}>Logout</span>
           </button>
         </div>
