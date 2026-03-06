@@ -1642,28 +1642,12 @@ export default function App() {
       {/* ─── SIDEBAR ─── */}
       <aside className={`sidebar ${sidebarOpen ? "" : "collapsed"}`}>
         <div className="brand">
-          <div className="brand-icon">🌊</div>
+          {/* Logo icon — hidden when collapsed */}
+          {sidebarOpen && <div className="brand-icon">🌊</div>}
+          {/* CDRRMO text only — no subtitle */}
           <div className={`brand-text ${sidebarOpen ? "" : "hidden"}`}>
             <div className="brand-name">CDRRMO</div>
-            <div className="brand-tag">Flood Warning System</div>
           </div>
-          <button className="sidebar-toggle-btn" onClick={() => setSidebarOpen(o => !o)} title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
-            {sidebarOpen ? (
-              /* Sidebar-open icon: two vertical panels, left filled */
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <line x1="9" y1="3" x2="9" y2="21"/>
-                <polyline points="5 8 7 12 5 16"/>
-              </svg>
-            ) : (
-              /* Sidebar-closed icon: two vertical panels, arrow pointing right */
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <line x1="9" y1="3" x2="9" y2="21"/>
-                <polyline points="13 8 17 12 13 16"/>
-              </svg>
-            )}
-          </button>
         </div>
         <nav className="nav">
           {navItems.map(item => (
@@ -1672,6 +1656,25 @@ export default function App() {
               <span className={`nav-label ${sidebarOpen ? "" : "hidden"}`}>{item.label}</span>
             </button>
           ))}
+          {/* Sidebar toggle — styled exactly like a nav button */}
+          <button className="nav-btn sidebar-toggle-nav" onClick={() => setSidebarOpen(o => !o)} title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
+            <span className="nav-icon">
+              {sidebarOpen ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="9" y1="3" x2="9" y2="21"/>
+                  <polyline points="5 8 7 12 5 16"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="9" y1="3" x2="9" y2="21"/>
+                  <polyline points="13 8 17 12 13 16"/>
+                </svg>
+              )}
+            </span>
+            <span className={`nav-label ${sidebarOpen ? "" : "hidden"}`}>Collapse</span>
+          </button>
         </nav>
         <div className="sidebar-footer">
           <button className="logout-btn" onClick={() => setShowLogoutModal(true)}>

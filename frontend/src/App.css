@@ -89,45 +89,18 @@ body {
   padding: 8px;
 }
 
+.sidebar-toggle-nav {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px !important;
+}
+
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 4px 28px;
   border-bottom: 1px solid var(--border);
-}
-
-/* ================================
-   SIDEBAR TOGGLE BUTTON
-================================ */
-.sidebar-toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 5px;
-  color: var(--text-3);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-  margin-left: auto;
-}
-
-.sidebar-toggle-btn:hover {
-  background: var(--bg-raised);
-  color: var(--text-1);
-  border-color: rgba(56,189,248,0.3);
-}
-
-.sidebar.collapsed .sidebar-toggle-btn {
-  margin-left: 0;
-}
-
-.sidebar.collapsed .brand {
-  justify-content: center;
-  gap: 0;
 }
 
 .brand-icon             { font-size: 22px; flex-shrink: 0; }
