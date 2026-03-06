@@ -1647,6 +1647,23 @@ export default function App() {
             <div className="brand-name">CDRRMO</div>
             <div className="brand-tag">Flood Warning System</div>
           </div>
+          <button className="sidebar-toggle-btn" onClick={() => setSidebarOpen(o => !o)} title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}>
+            {sidebarOpen ? (
+              /* Sidebar-open icon: two vertical panels, left filled */
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="9" y1="3" x2="9" y2="21"/>
+                <polyline points="5 8 7 12 5 16"/>
+              </svg>
+            ) : (
+              /* Sidebar-closed icon: two vertical panels, arrow pointing right */
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="9" y1="3" x2="9" y2="21"/>
+                <polyline points="13 8 17 12 13 16"/>
+              </svg>
+            )}
+          </button>
         </div>
         <nav className="nav">
           {navItems.map(item => (
@@ -1675,9 +1692,6 @@ export default function App() {
       <div className="main">
         <header className="topbar">
           <div className="top-left">
-            <button onClick={() => setSidebarOpen(o => !o)} className="hamburger">
-              <span></span><span></span><span></span>
-            </button>
             <div className="title-block">
               <h1>{pageInfo.title}</h1>
               <div className="subtitle">{pageInfo.sub}</div>

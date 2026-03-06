@@ -97,6 +97,39 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+/* ================================
+   SIDEBAR TOGGLE BUTTON
+================================ */
+.sidebar-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px;
+  color: var(--text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  margin-left: auto;
+}
+
+.sidebar-toggle-btn:hover {
+  background: var(--bg-raised);
+  color: var(--text-1);
+  border-color: rgba(56,189,248,0.3);
+}
+
+.sidebar.collapsed .sidebar-toggle-btn {
+  margin-left: 0;
+}
+
+.sidebar.collapsed .brand {
+  justify-content: center;
+  gap: 0;
+}
+
 .brand-icon             { font-size: 22px; flex-shrink: 0; }
 .brand-text             { overflow: hidden; white-space: nowrap; }
 .brand-text.hidden      { display: none; }
@@ -186,30 +219,6 @@ body {
 }
 
 .top-left { display: flex; align-items: center; gap: 16px; }
-
-.hamburger {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 6px;
-  border-radius: 6px;
-  flex-shrink: 0;
-}
-
-.hamburger span {
-  display: block;
-  width: 18px;
-  height: 2px;
-  background: var(--text-2);
-  border-radius: 2px;
-  transition: background 0.15s;
-}
-
-.hamburger:hover span { background: var(--text-1); }
 
 .title-block h1 {
   font-size: 14px;
