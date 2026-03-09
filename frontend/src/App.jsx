@@ -31,8 +31,14 @@ import "./App.css";
   .sms-role-text { font-size: 12px; color: var(--text-2); }
   .sms-role-badge, .sms-role-admin, .sms-role-operator { all: unset; font-size: 12px; color: var(--text-2); }
   .notif-toggles .settings-toggle-row:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-  .notif-toggle-btn-wrap { width: 64px; display: flex; justify-content: center; flex-shrink: 0; margin-right: -14px; padding-right: 0; }
-  .notif-toggle-btn-wrap .settings-toggle { margin-right: 0; }
+  .notif-toggle-row {
+    display: grid; grid-template-columns: 1fr 64px;
+    padding: 11px 16px; align-items: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+  .notif-toggle-row:last-child { border-bottom: none; }
+  .notif-toggle-btn-wrap { width: 64px; display: flex; justify-content: center; flex-shrink: 0; }
 `;
   document.head.appendChild(s);
 })();
@@ -1624,13 +1630,13 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
         <div className="page-card">
           <div className="page-card-title">Alert Triggers</div>
           <div className="page-card-sub">Choose how the system alerts operators during flood events.</div>
-          <div className="notif-toggles">
+          <div style={{ borderRadius: 10, overflow: "hidden", border: "1px solid var(--border)" }}>
           {[
             { key:"autoSiren", label:"Auto-trigger siren on CRITICAL", sub:"Siren activates automatically when danger threshold is crossed" },
             { key:"email",     label:"Email Notifications",            sub:"Send email alerts to registered operators" },
           ].map(item => (
-            <div key={item.key} className="settings-toggle-row" style={{ paddingRight: 0 }}>
-              <div className="settings-toggle-info"><div className="settings-toggle-label">{item.label}</div><div className="settings-toggle-sub">{item.sub}</div></div>
+            <div key={item.key} className="notif-toggle-row">
+              <div><div className="settings-toggle-label">{item.label}</div><div className="settings-toggle-sub">{item.sub}</div></div>
               <div className="notif-toggle-btn-wrap">
                 <button className={`settings-toggle ${notifs[item.key] ? "stoggle-on" : "stoggle-off"}`} onClick={() => handleNotifToggle(item.key)}>
                   {notifSaving[item.key] ? <span className="btn-spinner" style={{ width:10, height:10, borderWidth:1.5 }} /> : notifs[item.key] ? "ON" : "OFF"}
