@@ -777,7 +777,7 @@ body {
 }
 .settings-toggle-row:last-child { border-bottom: none; }
 .settings-toggle-info  { flex: 1; }
-.settings-toggle-label { font-size: 13px; font-weight: 600; color: var(--text-1); }
+.settings-toggle-label { font-size: 12px; font-weight: 600; color: var(--text-1); }
 .settings-toggle-sub   { font-size: 11px; color: var(--text-3); margin-top: 2px; }
 
 .settings-toggle {

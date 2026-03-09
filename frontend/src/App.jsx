@@ -27,7 +27,7 @@ import "./App.css";
   }
   .sms-table-row:last-child { border-bottom: none; }
   .sms-table-row:hover { background: var(--bg-raised); }
-  .sms-name { color: var(--text-1); font-weight: 600; font-size: 13px; }
+  .sms-name { color: var(--text-1); font-weight: 600; font-size: 12px; }
   .sms-role-text { font-size: 12px; color: var(--text-2); }
   .sms-role-badge, .sms-role-admin, .sms-role-operator { all: unset; font-size: 12px; color: var(--text-2); }
   .notif-toggles .settings-toggle-row:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
