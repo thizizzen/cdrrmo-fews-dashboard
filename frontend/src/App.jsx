@@ -14,8 +14,8 @@ spinnerStyle.textContent = `
   }
   @keyframes btn-spin { to { transform: rotate(360deg); } }
   .sms-table { width: 100%; margin-top: 8px; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
-  .sms-table-header { display: grid; grid-template-columns: 1.4fr 1.2fr 1.4fr 1fr auto; gap: 0; padding: 8px 14px; font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; background: var(--bg-raised); border-bottom: 1px solid var(--border); }
-  .sms-table-row { display: grid; grid-template-columns: 1.4fr 1.2fr 1.4fr 1fr auto; gap: 0; padding: 11px 14px; align-items: center; border-bottom: 1px solid var(--border); font-size: 12.5px; color: var(--text-2); background: var(--bg-card); transition: background 0.15s; }
+  .sms-table-header { display: grid; grid-template-columns: 1.6fr 0.9fr 1.2fr 1.3fr 60px; gap: 0; padding: 9px 16px; font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; background: var(--bg-raised); border-bottom: 1px solid var(--border); }
+  .sms-table-row { display: grid; grid-template-columns: 1.6fr 0.9fr 1.2fr 1.3fr 60px; gap: 0; padding: 12px 16px; align-items: center; border-bottom: 1px solid var(--border); font-size: 12.5px; color: var(--text-2); background: var(--bg-card); transition: background 0.15s; }
   .sms-table-row:last-child { border-bottom: none; }
   .sms-table-row:hover { background: var(--bg-raised); }
   .sms-name { color: var(--text-1); font-weight: 600; font-size: 13px; }
@@ -578,15 +578,19 @@ function ChangePasswordModal({ onClose, token, user, addLog }) {
 
 // ─── CHANGE PHONE MODAL ──────────────────────────────────────────────────────
 function ChangePhoneModal({ onClose, token, user, onPhoneChanged, addLog }) {
-  const [phone, setPhone]     = useState(user.phone || "");
-  const [error, setError]     = useState("");
-  const [saving, setSaving]   = useState(false);
-  const [saved, setSaved]     = useState(false);
+  const [phone, setPhone]           = useState("");
+  const [phoneConfirm, setConfirm]  = useState("");
+  const [error, setError]           = useState("");
+  const [saving, setSaving]         = useState(false);
+  const [saved, setSaved]           = useState(false);
 
   const handle = async () => {
     const cleaned = phone.trim().replace(/\s+/g, "");
-    if (!cleaned) { setError("Phone number is required."); return; }
+    const cleanedC = phoneConfirm.trim().replace(/\s+/g, "");
+    if (!cleaned)  { setError("New phone number is required."); return; }
     if (!/^\+?\d{10,15}$/.test(cleaned)) { setError("Enter a valid phone number (e.g. +639XXXXXXXXX)."); return; }
+    if (!cleanedC) { setError("Please confirm your phone number."); return; }
+    if (cleaned !== cleanedC) { setError("Phone numbers do not match."); return; }
     setSaving(true); setError("");
     try {
       const res  = await fetch(`${API_BASE}/users/me/phone`, {
@@ -596,8 +600,7 @@ function ChangePhoneModal({ onClose, token, user, onPhoneChanged, addLog }) {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.detail || "Failed to update phone number."); setSaving(false); return; }
-      addLog({ station: "System", type: "system",
-        message: `${user.name} updated their phone number` });
+      addLog({ station: "System", type: "system", message: `${user.name} updated their phone number` });
       onPhoneChanged(cleaned);
       setSaved(true);
       setTimeout(() => onClose(), 1200);
@@ -614,9 +617,14 @@ function ChangePhoneModal({ onClose, token, user, onPhoneChanged, addLog }) {
             : "No phone number registered yet."}
         </div>
         <div className="settings-field">
-          <label className="settings-label">Phone Number</label>
+          <label className="settings-label">New Phone Number</label>
           <input className="settings-input" type="tel" placeholder="+639XXXXXXXXX"
             value={phone} onChange={e => { setPhone(e.target.value); setError(""); }} autoFocus />
+        </div>
+        <div className="settings-field">
+          <label className="settings-label">Confirm Phone Number</label>
+          <input className="settings-input" type="tel" placeholder="+639XXXXXXXXX"
+            value={phoneConfirm} onChange={e => { setConfirm(e.target.value); setError(""); }} />
         </div>
         {error && <div className="settings-error">{error}</div>}
         <div className="modal-actions" style={{ marginTop: 4 }}>
@@ -631,7 +639,7 @@ function ChangePhoneModal({ onClose, token, user, onPhoneChanged, addLog }) {
 }
 
 // ─── ADD USER MODAL ───────────────────────────────────────────────────────────
-const EMPTY_ADD_FORM = { name: "", email: "", password: "", role: "Operator", department: "Operations", phone: "", phoneConfirm: "" };
+const EMPTY_ADD_FORM = { name: "", email: "", password: "", role: "Operator", department: "Operations", phone: "" };
 
 function AddUserModal({ onAdd, onClose, token, addLog }) {
   const [form, setForm]     = useState(EMPTY_ADD_FORM);
@@ -647,7 +655,6 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
     if (form.password.length < 6) { setError("Password must be at least 6 characters."); return; }
     if (!form.phone.trim())       { setError("Phone number is required."); return; }
     if (!/^\+?\d{10,15}$/.test(form.phone.trim().replace(/\s+/g,""))) { setError("Enter a valid phone number (e.g. +639XXXXXXXXX)."); return; }
-    if (form.phone.trim() !== form.phoneConfirm.trim()) { setError("Phone numbers do not match."); return; }
     setSaving(true);
     try {
       const res = await fetch(`${API_BASE}/users`, {
@@ -717,17 +724,10 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
           </div>
         </div>
           <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div className="settings-field">
-              <label className="settings-label">Phone Number</label>
-              <input className="settings-input" type="tel" placeholder="+639XXXXXXXXX"
-                value={form.phone} onChange={e => set("phone", e.target.value)} />
-            </div>
-            <div className="settings-field">
-              <label className="settings-label">Confirm Phone</label>
-              <input className="settings-input" type="tel" placeholder="+639XXXXXXXXX"
-                value={form.phoneConfirm} onChange={e => set("phoneConfirm", e.target.value)} />
-            </div>
+          <div className="settings-field">
+            <label className="settings-label">Phone Number</label>
+            <input className="settings-input" type="tel" placeholder="+639XXXXXXXXX"
+              value={form.phone} onChange={e => set("phone", e.target.value)} />
           </div>
         {error && <div className="settings-error">{error}</div>}
         <div className="modal-actions" style={{ marginTop: 4 }}>
@@ -1402,13 +1402,14 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
   const [notifSaving, setNotifSaving]       = useState({});
   const [smsSaving, setSmsSaving]           = useState({});
   const [confirmNotif, setConfirmNotif]     = useState(null);
+  const [confirmSms, setConfirmSms]         = useState(null);
   const [users, setUsers]                   = useState([]);
   const [loadingUsers, setLoadingUsers]     = useState(false);
   const [drafts, setDrafts]                 = useState({});
   const [savingIds, setSavingIds]           = useState({});
   const [confirmSave, setConfirmSave]       = useState(null);
   const [confirmRemove, setConfirmRemove]   = useState(null);
-  const [savedIds, setSavedIds]             = useState({});
+
 
   const isAdmin = userRole === "Admin";
 
@@ -1434,7 +1435,6 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
   const doSave = async () => {
     const u = confirmSave;
     const d = getDraft(u);
-    setSavingIds(prev => ({ ...prev, [u.id]: true }));
     try {
       const res = await fetch(`${API_BASE}/users/${u.id}`, {
         method:  "PUT",
@@ -1442,25 +1442,12 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
         body:    JSON.stringify(d),
       });
       if (res.ok) {
-        if (d.role !== u.role) {
-          addLog({
-            station: "System", type: "system",
-            message: `${u.name}'s role has been changed from ${u.role} to ${d.role} by ${userName}`,
-          });
-        }
-        if (d.department !== u.department) {
-          addLog({
-            station: "System", type: "system",
-            message: `${u.name}'s department has been changed from ${u.department} to ${d.department} by ${userName}`,
-          });
-        }
+        if (d.role !== u.role) addLog({ station: "System", type: "system", message: `${u.name}'s role has been changed from ${u.role} to ${d.role} by ${userName}` });
+        if (d.department !== u.department) addLog({ station: "System", type: "system", message: `${u.name}'s department has been changed from ${u.department} to ${d.department} by ${userName}` });
         setUsers(prev => prev.map(x => x.id === u.id ? { ...x, ...d } : x));
         setDrafts(prev => { const n={...prev}; delete n[u.id]; return n; });
-        setSavedIds(prev => ({ ...prev, [u.id]: true }));
-        setTimeout(() => setSavedIds(prev => ({ ...prev, [u.id]: false })), 2000);
       }
     } catch {}
-    setSavingIds(prev => ({ ...prev, [u.id]: false }));
     setConfirmSave(null);
   };
 
@@ -1535,6 +1522,15 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
           onUserUpdate({ ...user, phone: newPhone });
           setUsers(prev => prev.map(u => u.id === user.id ? { ...u, phone: newPhone } : u));
         }} />}
+      {confirmSms && <ConfirmModal
+        icon={confirmSms.newVal ? "🔔" : "🔕"}
+        iconColor={confirmSms.newVal ? "var(--green)" : "var(--red)"}
+        title={confirmSms.newVal ? `Enable SMS for ${confirmSms.name}?` : `Disable SMS for ${confirmSms.name}?`}
+        message={confirmSms.newVal ? `${confirmSms.name} will receive SMS alerts on CRITICAL events.` : `${confirmSms.name} will no longer receive SMS alerts.`}
+        confirmLabel={confirmSms.newVal ? "Yes, Enable" : "Yes, Disable"}
+        confirmColor={confirmSms.newVal ? "var(--green)" : "var(--red)"}
+        onConfirm={() => { handleSmsToggle(confirmSms.userId, confirmSms.newVal); setConfirmSms(null); }}
+        onCancel={() => setConfirmSms(null)} />}
       {confirmNotif && <ConfirmModal
         icon={notifs[confirmNotif] ? "🔕" : "🔔"}
         iconColor={notifs[confirmNotif] ? "var(--red)" : "var(--green)"}
@@ -1600,9 +1596,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
                         <select className="mu-select" value={d.department} onChange={e => handleDraft(u.id, "department", e.target.value)}>
                           <option>Operations</option><option>Field Unit A</option><option>Field Unit B</option><option>Command Post</option><option>Admin Office</option>
                         </select>
-                        <button className="mu-save-btn" disabled={!changed || savingIds[u.id]} onClick={() => setConfirmSave(u)}>
-                          {savingIds[u.id] ? <span className="btn-spinner" /> : savedIds[u.id] ? "Saved" : "Save"}
-                        </button>
+                        <button className="mu-save-btn" disabled={!changed} onClick={() => setConfirmSave(u)}>Save</button>
                         <button className="mu-remove-btn" onClick={() => setConfirmRemove(u)}>✕</button>
                       </div>
                     </div>
@@ -1634,7 +1628,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
           </div>
           <div className="sms-table">
             <div className="sms-table-header">
-              <span>Name</span><span>Department</span><span>Phone Number</span><span>Role</span><span>Alerts</span>
+              <span>Name</span><span>Role</span><span>Department</span><span>Phone Number</span><span style={{textAlign:"center"}}>Alerts</span>
             </div>
             {(isAdmin ? users : users.filter(u => u.id === user.id)).map(u => (
               <div key={u.id} className="sms-table-row">
@@ -1644,21 +1638,20 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
                   </div>
                   <span className="sms-name">{u.name}</span>
                 </div>
+                <span className={`sms-role-badge ${u.role === "Admin" ? "sms-role-admin" : "sms-role-operator"}`}>{u.role}</span>
                 <span style={{ color:"var(--text-2)", fontSize:12 }}>{u.department}</span>
                 <span style={{ color: u.phone ? "var(--text-1)" : "var(--text-3)", fontFamily: u.phone ? "var(--mono, monospace)" : "inherit", fontSize: u.phone ? 11.5 : 12 }}>
-                  {u.phone || <span style={{ color:"var(--text-3)", fontSize:11 }}>No number set</span>}
+                  {u.phone || <span style={{ color:"var(--text-3)", fontSize:11 }}>—</span>}
                 </span>
-                <span className={`sms-role-badge ${u.role === "Admin" ? "sms-role-admin" : "sms-role-operator"}`}>
-                  {u.role}
-                </span>
-                <button
-                  className={`settings-toggle ${u.sms_enabled ? "stoggle-on" : "stoggle-off"}`}
-                  style={{ minWidth: 48 }}
-                  onClick={() => handleSmsToggle(u.id, !u.sms_enabled)}
-                  disabled={!isAdmin && u.id !== user.id}
-                >
-                  {smsSaving[u.id] ? <span className="btn-spinner" style={{ width:10, height:10, borderWidth:1.5 }} /> : u.sms_enabled ? "ON" : "OFF"}
-                </button>
+                <div style={{ display:"flex", justifyContent:"center" }}>
+                  <button
+                    className={`settings-toggle ${u.sms_enabled ? "stoggle-on" : "stoggle-off"}`}
+                    style={{ minWidth: 48 }}
+                    onClick={() => setConfirmSms({ userId: u.id, name: u.name, newVal: !u.sms_enabled })}
+                  >
+                    {smsSaving[u.id] ? <span className="btn-spinner" style={{ width:10, height:10, borderWidth:1.5 }} /> : u.sms_enabled ? "ON" : "OFF"}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
