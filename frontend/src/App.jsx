@@ -1620,26 +1620,30 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
           </div>
         )}
 
+
         <div className="page-card">
-          <div className="page-card-title">Notification Preferences</div>
+          <div className="page-card-title">Alert Triggers</div>
           <div className="page-card-sub">Choose how the system alerts operators during flood events.</div>
           <div className="notif-toggles">
           {[
             { key:"autoSiren", label:"Auto-trigger siren on CRITICAL", sub:"Siren activates automatically when danger threshold is crossed" },
             { key:"email",     label:"Email Notifications",            sub:"Send email alerts to registered operators" },
           ].map(item => (
-            <div key={item.key} className="settings-toggle-row">
+            <div key={item.key} className="settings-toggle-row" style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
               <div className="settings-toggle-info"><div className="settings-toggle-label">{item.label}</div><div className="settings-toggle-sub">{item.sub}</div></div>
-              <button className={`settings-toggle ${notifs[item.key] ? "stoggle-on" : "stoggle-off"}`} onClick={() => handleNotifToggle(item.key)}>
-                {notifSaving[item.key] ? <span className="btn-spinner" style={{ width:10, height:10, borderWidth:1.5 }} /> : notifs[item.key] ? "ON" : "OFF"}
-              </button>
+              <div style={{ width: 64, display:"flex", justifyContent:"flex-end", flexShrink:0 }}>
+                <button className={`settings-toggle ${notifs[item.key] ? "stoggle-on" : "stoggle-off"}`} onClick={() => handleNotifToggle(item.key)}>
+                  {notifSaving[item.key] ? <span className="btn-spinner" style={{ width:10, height:10, borderWidth:1.5 }} /> : notifs[item.key] ? "ON" : "OFF"}
+                </button>
+              </div>
             </div>
           ))}
           </div>
-          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-1)", marginBottom: 3 }}>SMS Notifications</div>
-            <div className="settings-toggle-sub">Send SMS alerts to registered operators on CRITICAL events</div>
-          </div>
+        </div>
+
+        <div className="page-card">
+          <div className="page-card-title">SMS Notifications</div>
+          <div className="page-card-sub">Send SMS alerts to registered operators on CRITICAL events.</div>
           <div className="sms-table">
             <div className="sms-table-header">
               <span>Name</span><span>Role</span><span>Department</span><span>Phone Number</span><span style={{textAlign:"center"}}>Alerts</span>
