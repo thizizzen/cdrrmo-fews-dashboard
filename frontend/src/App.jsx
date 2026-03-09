@@ -434,10 +434,13 @@ function OpenPopup({ fews, markerRefs }) {
 
 // ─── MODALS ───────────────────────────────────────────────────────────────────
 function ConfirmModal({ icon, iconColor, title, message, confirmLabel, confirmColor, onConfirm, onCancel }) {
-  const [saving, setSaving] = useState(false);
-  const handle = () => {
-    setSaving(true);
-    setTimeout(() => { onConfirm(); }, 600);
+  const [status, setStatus] = useState("idle"); // idle | saving | saved
+  const handle = async () => {
+    setStatus("saving");
+    await new Promise(r => setTimeout(r, 700));
+    setStatus("saved");
+    await new Promise(r => setTimeout(r, 900));
+    onConfirm();
   };
   return (
     <div className="modal-overlay">
@@ -448,10 +451,12 @@ function ConfirmModal({ icon, iconColor, title, message, confirmLabel, confirmCo
         </div>
         <div className="modal-msg">{message}</div>
         <div className="modal-actions">
-          <button className="modal-btn modal-cancel" onClick={onCancel} disabled={saving}>Cancel</button>
-          <button className="modal-btn" style={{ background: confirmColor || "var(--blue)", color: confirmColor ? "#fff" : "#000", minWidth: 90 }}
-            onClick={handle} disabled={saving}>
-            {saving ? <span className="btn-spinner" style={{ borderTopColor: confirmColor ? "#fff" : "#000", borderColor: confirmColor ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.2)" }} /> : confirmLabel}
+          <button className="modal-btn modal-cancel" onClick={onCancel} disabled={status !== "idle"}>Cancel</button>
+          <button className="modal-btn" style={{ background: confirmColor || "var(--blue)", color: "#fff", minWidth: 90 }}
+            onClick={handle} disabled={status !== "idle"}>
+            {status === "saving"
+              ? <span className="btn-spinner" style={{ borderTopColor: "#fff", borderColor: "rgba(255,255,255,0.25)" }} />
+              : status === "saved" ? "Saved ✓" : confirmLabel}
           </button>
         </div>
       </div>
@@ -699,6 +704,11 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
               value={form.email} onChange={e => set("email", e.target.value)} />
           </div>
           <div className="settings-field">
+            <label className="settings-label">Phone Number</label>
+            <input className="settings-input" type="tel" placeholder="+639XXXXXXXXX"
+              value={form.phone} onChange={e => set("phone", e.target.value)} />
+          </div>
+          <div className="settings-field">
             <label className="settings-label">Password</label>
             <input className="settings-input" type="password" placeholder="Min. 6 characters"
               value={form.password} onChange={e => set("password", e.target.value)} />
@@ -723,12 +733,6 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
             </div>
           </div>
         </div>
-          <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
-          <div className="settings-field">
-            <label className="settings-label">Phone Number</label>
-            <input className="settings-input" type="tel" placeholder="+639XXXXXXXXX"
-              value={form.phone} onChange={e => set("phone", e.target.value)} />
-          </div>
         {error && <div className="settings-error">{error}</div>}
         <div className="modal-actions" style={{ marginTop: 4 }}>
           <button className="modal-btn modal-cancel" onClick={onClose} disabled={saving}>Cancel</button>
