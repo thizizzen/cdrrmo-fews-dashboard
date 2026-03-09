@@ -15,13 +15,13 @@ import "./App.css";
   @keyframes btn-spin { to { transform: rotate(360deg); } }
   .sms-table { width: 100%; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
   .sms-table-header {
-    display: grid; grid-template-columns: 2fr 120px 1.4fr 1.6fr 64px;
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 64px;
     padding: 8px 16px; font-size: 10px; color: var(--text-3);
     text-transform: uppercase; letter-spacing: 0.07em;
     background: var(--bg-raised); border-bottom: 1px solid var(--border); align-items: center;
   }
   .sms-table-row {
-    display: grid; grid-template-columns: 2fr 120px 1.4fr 1.6fr 64px;
+    display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 64px;
     padding: 11px 16px; align-items: center;
     border-bottom: 1px solid var(--border); background: var(--bg-card); transition: background 0.15s;
   }
@@ -29,10 +29,9 @@ import "./App.css";
   .sms-table-row:hover { background: var(--bg-raised); }
   .sms-name { color: var(--text-1); font-weight: 600; font-size: 13px; }
   .sms-role-text { font-size: 12px; color: var(--text-2); }
-  .sms-role-badge, .sms-role-admin, .sms-role-operator {
-    all: unset; font-size: 12px; color: var(--text-2);
-  }
+  .sms-role-badge, .sms-role-admin, .sms-role-operator { all: unset; font-size: 12px; color: var(--text-2); }
   .notif-toggles .settings-toggle-row:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .notif-toggle-btn-wrap { width: 64px; display: flex; justify-content: center; flex-shrink: 0; }
 `;
   document.head.appendChild(s);
 })();
@@ -1631,7 +1630,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
           ].map(item => (
             <div key={item.key} className="settings-toggle-row" style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
               <div className="settings-toggle-info"><div className="settings-toggle-label">{item.label}</div><div className="settings-toggle-sub">{item.sub}</div></div>
-              <div style={{ width: 64, display:"flex", justifyContent:"flex-end", flexShrink:0 }}>
+              <div className="notif-toggle-btn-wrap">
                 <button className={`settings-toggle ${notifs[item.key] ? "stoggle-on" : "stoggle-off"}`} onClick={() => handleNotifToggle(item.key)}>
                   {notifSaving[item.key] ? <span className="btn-spinner" style={{ width:10, height:10, borderWidth:1.5 }} /> : notifs[item.key] ? "ON" : "OFF"}
                 </button>
