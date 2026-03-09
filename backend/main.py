@@ -264,9 +264,6 @@ def change_phone(req: ChangePhoneRequest, user=Depends(get_current_user)):
 
 @app.put("/users/{user_id}/sms")
 def update_sms_enabled(user_id: int, req: SmsEnabledRequest, user=Depends(get_current_user)):
-    # Admin can toggle anyone, operators can only toggle themselves
-    if user.get("role") != "Admin" and int(user["sub"]) != user_id:
-        raise HTTPException(status_code=403, detail="Not authorized")
     conn = get_db()
     cur  = conn.cursor()
     try:
@@ -376,7 +373,7 @@ def get_logs(user=Depends(get_current_user)):
 # ─── USER MANAGEMENT (Admin only) ─────────────────────────────────────────────
 
 @app.get("/users")
-def list_users(admin=Depends(require_admin)):
+def list_users(user=Depends(get_current_user)):
     conn = get_db()
     cur  = conn.cursor()
     try:

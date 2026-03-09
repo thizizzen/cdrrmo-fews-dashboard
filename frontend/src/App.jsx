@@ -27,7 +27,7 @@ import "./App.css";
   }
   .sms-table-row:last-child { border-bottom: none; }
   .sms-table-row:hover { background: var(--bg-raised); }
-  .sms-name { color: var(--text-1); font-weight: 600; font-size: 12px; }
+  .sms-name { color: var(--text-1); font-weight: 600; font-size: 13px; }
   .sms-role-text { font-size: 12px; color: var(--text-2); }
   .sms-role-badge, .sms-role-admin, .sms-role-operator { all: unset; font-size: 12px; color: var(--text-2); }
   .notif-toggles .settings-toggle-row:last-of-type { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
@@ -1476,14 +1476,13 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
   };
 
   useEffect(() => {
-    if (!isAdmin) return;
     setLoadingUsers(true);
     fetch(`${API_BASE}/users`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(data => { setUsers(Array.isArray(data) ? data : []); })
       .catch(() => {})
       .finally(() => setLoadingUsers(false));
-  }, [isAdmin, token]);
+  }, [token]);
 
   const getDraft    = (u) => drafts[u.id] || { role: u.role, department: u.department };
   const handleDraft = (id, key, val) => setDrafts(prev => ({ ...prev, [id]: { ...getDraft(users.find(u => u.id === id)), [key]: val } }));
@@ -1691,7 +1690,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
             <div className="sms-table-header">
               <span>Name</span><span>Role</span><span>Department</span><span>Phone Number</span><span style={{textAlign:"center"}}>Alerts</span>
             </div>
-            {(isAdmin ? users : users.filter(u => u.id === user.id)).map(u => (
+            {(isAdmin ? users : users.filter(u => u.role !== "Admin")).map(u => (
               <div key={u.id} className="sms-table-row">
                 <span className="sms-name">{u.name}</span>
                 <span className="sms-role-text">{u.role}</span>
