@@ -653,7 +653,7 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-box" style={{ alignItems: "stretch", gap: 16, maxWidth: 420 }}>
+      <div className="modal-box aum-box" style={{ alignItems: "stretch", gap: 16, maxWidth: 420 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div className="modal-icon" style={{ color: "var(--blue)", marginBottom: 0, fontSize: 22 }}>👤</div>
           <div className="modal-title">Add New User</div>
