@@ -614,7 +614,7 @@ function ChangePhoneModal({ onClose, token, user, onPhoneChanged, addLog }) {
 }
 
 // ─── ADD USER MODAL ───────────────────────────────────────────────────────────
-const EMPTY_ADD_FORM = { name: "", email: "", password: "", role: "Operator", department: "Operations", phone: "" };
+const EMPTY_ADD_FORM = { name: "", email: "", password: "", role: "Operator", department: "C3", phone: "" };
 
 function AddUserModal({ onAdd, onClose, token, addLog }) {
   const [form, setForm]     = useState(EMPTY_ADD_FORM);
@@ -666,21 +666,25 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
           <div className="settings-field">
             <label className="settings-label">Full Name</label>
             <input className="settings-input" placeholder="e.g. Juan dela Cruz"
-              value={form.name} onChange={e => set("name", e.target.value)} autoFocus />
+              autoComplete="off" autoFocus
+              value={form.name} onChange={e => set("name", e.target.value)} />
           </div>
           <div className="settings-field">
             <label className="settings-label">Email</label>
             <input className="settings-input" type="email" placeholder="e.g. juan@cdrrmo.gov.ph"
+              autoComplete="off"
               value={form.email} onChange={e => set("email", e.target.value)} />
           </div>
           <div className="settings-field">
             <label className="settings-label">Phone Number</label>
             <input className="settings-input" type="tel" placeholder="+639XXXXXXXXX"
+              autoComplete="off"
               value={form.phone} onChange={e => set("phone", e.target.value)} />
           </div>
           <div className="settings-field">
             <label className="settings-label">Password</label>
             <input className="settings-input" type="password" placeholder="Min. 6 characters"
+              autoComplete="new-password"
               value={form.password} onChange={e => set("password", e.target.value)} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -696,7 +700,7 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
               <label className="settings-label">Department</label>
               <MuDropdown
                 value={form.department}
-                options={["Operations", "Field Unit A", "Field Unit B", "Command Post", "Admin Office"]}
+                options={["C3", "MIAD", "Operations", "ITSD"]}
                 onChange={val => set("department", val)}
               />
             </div>
@@ -1646,7 +1650,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
                         />
                         <MuDropdown
                           value={d.department}
-                          options={["Operations", "Field Unit A", "Field Unit B", "Command Post", "Admin Office"]}
+                          options={["C3", "MIAD", "Operations", "ITSD"]}
                           onChange={val => handleDraft(u.id, "department", val)}
                         />
                         <button className="mu-save-btn" disabled={!changed} onClick={() => setConfirmSave(u)}>Save</button>
