@@ -782,6 +782,7 @@ function ProfileDropdown({ user, token, onSave, onClose }) {
           </div>
           <div className="pd-divider" />
           <button className="pd-btn" onClick={() => setEditing(true)}>✎  Edit Profile</button>
+          <button className="pd-btn pd-logout-mobile" onClick={() => { if(typeof window.__onMobileLogout === 'function') window.__onMobileLogout(); }}>⎋  Logout</button>
         </>
       ) : (
         <>
@@ -1754,6 +1755,9 @@ export default function App() {
     setToken("");
     setShowLogoutModal(false);
   };
+
+  // expose logout for mobile profile dropdown
+  useEffect(() => { window.__onMobileLogout = () => setShowLogoutModal(true); return () => { delete window.__onMobileLogout; }; }, []);
 
   const navItems = useMemo(() =>
     ALL_NAV_ITEMS.filter(item => ROLE_ACCESS[user.role]?.includes(item.key)),
