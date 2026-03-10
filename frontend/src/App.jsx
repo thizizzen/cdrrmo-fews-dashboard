@@ -1147,7 +1147,7 @@ function DateRangeFilter({ from, to, onChange }) {
 
   const hasFilter = from || to;
   const isSingle  = from && to && from === to;
-  let displayLabel = "Dates";
+  let displayLabel = "All Dates";
   if (isSingle) displayLabel = fmt(from);
   else if (from && to) displayLabel = `${fmt(from)} — ${fmt(to)}`;
 
@@ -1283,12 +1283,12 @@ function LogsPage({ token, userRole }) {
   }, [logs]);
 
   const stationOptions = useMemo(() => [
-    { value: "All", label: "Stations" },
+    { value: "All", label: "All Stations" },
     ...allStations.map(s => ({ value: s, label: s })),
   ], [allStations]);
 
   const typeOptions = useMemo(() => [
-    { value: "All", label: "Types" },
+    { value: "All", label: "All Types" },
     ...allowedTypes.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })),
   ], [allowedTypes]);
 
@@ -1326,8 +1326,8 @@ function LogsPage({ token, userRole }) {
             <input className="logs-search-input" placeholder="Search logs…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
             {search && <button className="logs-search-clear" onClick={() => { setSearch(""); setPage(1); }}>✕</button>}
           </div>
-          <FilterDropdown label="Stations" options={stationOptions} value={filterStation} onChange={v => { setFilterStation(v); setPage(1); }} />
-          <FilterDropdown label="Types"    options={typeOptions}    value={filterType}    onChange={v => { setFilterType(v);    setPage(1); }} />
+          <FilterDropdown label="All Stations" options={stationOptions} value={filterStation} onChange={v => { setFilterStation(v); setPage(1); }} />
+          <FilterDropdown label="All Types"    options={typeOptions}    value={filterType}    onChange={v => { setFilterType(v);    setPage(1); }} />
           <DateRangeFilter from={filterDateRange.from} to={filterDateRange.to} onChange={v => { setFilterDateRange(v); setPage(1); }} />
           {hasFilters && <button className="logs-reset-icon-btn" onClick={() => { setSearch(""); setFilterStation("All"); setFilterType("All"); setFilterDateRange({ from:"", to:"" }); setPage(1); }} title="Reset">↺</button>}
           <ExportMenu filtered={filtered} exporting={exporting} setExporting={setExporting} />
