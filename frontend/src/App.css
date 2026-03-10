@@ -1997,7 +1997,7 @@ select.settings-input {
   .mu-row      { flex-wrap: wrap; gap: 10px; }
   .mu-info     { min-width: 0; flex: 1 1 100%; }
   .mu-controls { flex-wrap: wrap; width: 100%; gap: 6px; }
-  .mu-select   { flex: 1; min-width: 0; height: 36px; font-size: 16px; padding: 0 28px 0 8px; }
+  .mu-select   { flex: 1; min-width: 0; height: 34px; font-size: 16px; padding: 0 26px 0 8px; }
   .mu-save-btn { flex: 1; }
   .mu-add-btn  { padding: 6px 10px; font-size: 11px; }
   .mu-avatar   { width: 32px; height: 32px; font-size: 10px; }
@@ -2059,24 +2059,24 @@ select.settings-input {
 
   /* Reset + download fixed width at end */
   .logs-filters-row > .logs-reset-icon-btn {
-    flex: 0 0 32px; width: 32px; height: 34px;
-    border-radius: 8px; font-size: 14px;
+    flex: 0 0 30px; width: 30px; height: 32px;
+    border-radius: 8px; font-size: 12px;
   }
-  .logs-filters-row > .export-menu-wrap { flex: 0 0 34px; }
+  .logs-filters-row > .export-menu-wrap { flex: 0 0 32px; }
 
   /* Dropdown trigger — fills its fdd-wrap, truncates label */
   .fdd-trigger {
-    width: 100%; height: 34px;
-    font-size: 11px; padding: 0 6px;
+    width: 100%; height: 32px;
+    font-size: 10px; padding: 0 5px;
     white-space: nowrap; overflow: hidden;
-    border-radius: 10px;
+    border-radius: 10px; gap: 3px;
   }
-  .fdd-chevron { flex-shrink: 0; font-size: 9px; }
-  .fdd-icon    { flex-shrink: 0; font-size: 10px; }
+  .fdd-chevron { flex-shrink: 0; width: 8px !important; height: 5px !important; }
+  .fdd-icon    { flex-shrink: 0; font-size: 9px; }
   .fdd-label   { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fdd-menu    { width: max-content; min-width: 130px; left: 0; }
 
-  .export-menu-trigger  { width: 34px; height: 34px; padding: 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .export-menu-trigger  { width: 32px; height: 32px; padding: 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
   .export-menu-dropdown { right: 0; left: auto; min-width: 140px; }
   .mc-header            { margin-bottom: 8px; }
 
@@ -2159,7 +2159,7 @@ select.settings-input {
   .modal-btn   { padding: 9px; font-size: 12px; }
 
   /* Add New User modal — compact fields */
-  .settings-input  { padding: 8px 10px; font-size: 16px; border-radius: 8px; }
+  .settings-input  { padding: 6px 10px; font-size: 16px; border-radius: 8px; height: 40px; }
   .settings-field  { gap: 4px; }
   .settings-label  { font-size: 10px; }
   .aum-box         { gap: 10px !important; max-width: 92vw !important; }
@@ -2168,11 +2168,23 @@ select.settings-input {
   input, select, textarea {
     font-size: 16px !important;
   }
-  .login-input      { font-size: 16px !important; }
-  .mu-select        { font-size: 16px !important; height: 40px; padding: 0 28px 0 10px; }
+  .login-input        { font-size: 16px !important; }
+  .logs-search-input  { font-size: 16px !important; height: 36px; padding: 8px 30px 8px 34px; }
+  .mu-select          { font-size: 16px !important; height: 34px; padding: 0 26px 0 8px; }
 
   /* ── Date range filter panel ── */
-  .drf-panel { right: auto; left: 0; }
+  /* Calendar fixed on mobile so it never overflows viewport */
+  .drf-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    right: auto;
+    width: calc(100vw - 40px);
+    max-width: 300px;
+    z-index: 99999;
+  }
+  .drf-panel-single { width: calc(100vw - 40px); max-width: 300px; }
 
   /* ── Profile dropdown — compact on mobile ── */
   .profile-avatar-btn { width: 30px; height: 30px; font-size: 10px; }

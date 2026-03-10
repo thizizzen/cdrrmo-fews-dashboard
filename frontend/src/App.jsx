@@ -1147,14 +1147,14 @@ function DateRangeFilter({ from, to, onChange }) {
 
   const hasFilter = from || to;
   const isSingle  = from && to && from === to;
-  let displayLabel = "All Dates";
+  let displayLabel = "Dates";
   if (isSingle) displayLabel = fmt(from);
   else if (from && to) displayLabel = `${fmt(from)} — ${fmt(to)}`;
 
   return (
     <div className="fdd-wrap drf-wrap" ref={ref}>
       <button type="button" className={`fdd-trigger ${hasFilter ? "fdd-trigger-active" : ""} ${open ? "fdd-trigger-open" : ""}`}
-       onClick={() => setOpen(o => !o)} style={{ minWidth: 148 }}>
+       onClick={() => setOpen(o => !o)}>
         <span className="fdd-icon" style={{ fontSize: 12 }}>📅</span>
         <span className="fdd-label">{displayLabel}</span>
         <svg className="fdd-chevron" width="10" height="6" viewBox="0 0 10 6" fill="none">
@@ -1283,12 +1283,12 @@ function LogsPage({ token, userRole }) {
   }, [logs]);
 
   const stationOptions = useMemo(() => [
-    { value: "All", label: "All Stations" },
+    { value: "All", label: "Stations" },
     ...allStations.map(s => ({ value: s, label: s })),
   ], [allStations]);
 
   const typeOptions = useMemo(() => [
-    { value: "All", label: "All Types" },
+    { value: "All", label: "Types" },
     ...allowedTypes.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })),
   ], [allowedTypes]);
 
@@ -1326,8 +1326,8 @@ function LogsPage({ token, userRole }) {
             <input className="logs-search-input" placeholder="Search logs…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
             {search && <button className="logs-search-clear" onClick={() => { setSearch(""); setPage(1); }}>✕</button>}
           </div>
-          <FilterDropdown label="All Stations" options={stationOptions} value={filterStation} onChange={v => { setFilterStation(v); setPage(1); }} />
-          <FilterDropdown label="All Types"    options={typeOptions}    value={filterType}    onChange={v => { setFilterType(v);    setPage(1); }} />
+          <FilterDropdown label="Stations" options={stationOptions} value={filterStation} onChange={v => { setFilterStation(v); setPage(1); }} />
+          <FilterDropdown label="Types"    options={typeOptions}    value={filterType}    onChange={v => { setFilterType(v);    setPage(1); }} />
           <DateRangeFilter from={filterDateRange.from} to={filterDateRange.to} onChange={v => { setFilterDateRange(v); setPage(1); }} />
           {hasFilters && <button className="logs-reset-icon-btn" onClick={() => { setSearch(""); setFilterStation("All"); setFilterType("All"); setFilterDateRange({ from:"", to:"" }); setPage(1); }} title="Reset">↺</button>}
           <ExportMenu filtered={filtered} exporting={exporting} setExporting={setExporting} />
