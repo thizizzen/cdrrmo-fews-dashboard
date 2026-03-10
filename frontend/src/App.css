@@ -823,14 +823,13 @@ select.settings-input {
 
 .mu-select {
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-  padding: 7px 10px; color: var(--text-1); font-family: var(--font);
+  padding: 7px 28px 7px 10px; color: var(--text-1); font-family: var(--font);
   font-size: 11px; font-weight: 600; outline: none; cursor: pointer;
   transition: border-color 0.2s; height: 34px;
   -webkit-appearance: none; appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%234a607e' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='1 1 5 5 9 1'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
-  padding-right: 26px;
 }
 .mu-select:focus { border-color: var(--blue); }
 
@@ -1998,7 +1997,7 @@ select.settings-input {
   .mu-row      { flex-wrap: wrap; gap: 10px; }
   .mu-info     { min-width: 0; flex: 1 1 100%; }
   .mu-controls { flex-wrap: wrap; width: 100%; gap: 6px; }
-  .mu-select   { flex: 1; min-width: 100px; }
+  .mu-select   { flex: 1; min-width: 0; height: 36px; font-size: 16px; padding: 0 28px 0 8px; }
   .mu-save-btn { flex: 1; }
   .mu-add-btn  { padding: 6px 10px; font-size: 11px; }
   .mu-avatar   { width: 32px; height: 32px; font-size: 10px; }
@@ -2009,7 +2008,7 @@ select.settings-input {
   /* ── SMS table ── */
   .sms-table            { border-radius: 8px; }
   .sms-table-header     { display: none; }
-  .sms-table-row        { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto auto; gap: 2px 12px; padding: 10px 12px; }
+  .sms-table-row        { display: grid; grid-template-columns: 1fr 64px; grid-template-rows: auto auto auto; gap: 2px 12px; padding: 10px 12px; }
   .sms-table-row .sms-name                 { grid-column: 1; grid-row: 1; font-size: 12px; }
   .sms-table-row .sms-role-text            { grid-column: 1; grid-row: 2; font-size: 10px; color: var(--text-3); display: block; }
   .sms-table-row > span:nth-child(3)       { grid-column: 1; grid-row: 3; font-size: 10px; color: var(--text-3); display: block; }
@@ -2044,37 +2043,37 @@ select.settings-input {
   .uc-save-info-btn { padding: 3px 12px; font-size: 11px; }
   .uc-edit-btn      { font-size: 10px; padding: 3px 8px; }
 
-  /* ── Logs filters: row1=search full-width, row2=3 filters+download no-wrap ── */
+  /* ── Logs filters: search full row 1, dropdowns+download row 2 ── */
   .logs-filters-row {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    align-items: stretch;
-  }
-
-  .logs-search-wrap { width: 100%; min-width: 0; }
-
-  /* Row 2 container — we use a pseudo-trick: all non-search siblings go into a flex row */
-  /* Since all 3 fdd-wraps + export are direct children, use flex-wrap + 100% on search */
-  .logs-filters-row {
     flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
   }
-  .logs-search-wrap                        { flex: 0 0 100%; }
-  .logs-filters-row > .fdd-wrap            { flex: 1 1 0; min-width: 0; max-width: none; }
-  .logs-filters-row > .logs-reset-icon-btn { flex: 0 0 30px; width: 30px; height: 34px; border-radius: 8px; font-size: 13px; }
-  .logs-filters-row > .export-menu-wrap    { flex: 0 0 34px; }
 
-  /* Truncate dropdown labels so they fit in equal thirds */
+  /* Search bar — full width, own row */
+  .logs-search-wrap { flex: 0 0 100%; min-width: 0; }
+
+  /* 3 dropdowns share remaining space equally */
+  .logs-filters-row > .fdd-wrap { flex: 1 1 0; min-width: 0; }
+
+  /* Reset + download fixed width at end */
+  .logs-filters-row > .logs-reset-icon-btn {
+    flex: 0 0 32px; width: 32px; height: 34px;
+    border-radius: 8px; font-size: 14px;
+  }
+  .logs-filters-row > .export-menu-wrap { flex: 0 0 34px; }
+
+  /* Dropdown trigger — fills its fdd-wrap, truncates label */
   .fdd-trigger {
-    width: 100%;
-    font-size: 10px;
-    padding: 0 6px;
-    white-space: nowrap;
-    overflow: hidden;
+    width: 100%; height: 34px;
+    font-size: 11px; padding: 0 6px;
+    white-space: nowrap; overflow: hidden;
+    border-radius: 10px;
   }
   .fdd-chevron { flex-shrink: 0; font-size: 9px; }
-  .fdd-icon    { flex-shrink: 0; }
-  .fdd-label   { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; display: block; }
+  .fdd-icon    { flex-shrink: 0; font-size: 10px; }
+  .fdd-label   { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fdd-menu    { width: max-content; min-width: 130px; left: 0; }
 
   .export-menu-trigger  { width: 34px; height: 34px; padding: 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
@@ -2160,10 +2159,17 @@ select.settings-input {
   .modal-btn   { padding: 9px; font-size: 12px; }
 
   /* Add New User modal — compact fields */
-  .settings-input  { padding: 8px 10px; font-size: 12px; border-radius: 8px; }
+  .settings-input  { padding: 8px 10px; font-size: 16px; border-radius: 8px; }
   .settings-field  { gap: 4px; }
   .settings-label  { font-size: 10px; }
   .aum-box         { gap: 10px !important; max-width: 92vw !important; }
+
+  /* ── iOS zoom fix: all inputs must be font-size 16px to prevent Safari zoom ── */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  .login-input      { font-size: 16px !important; }
+  .mu-select        { font-size: 16px !important; height: 40px; padding: 0 28px 0 10px; }
 
   /* ── Date range filter panel ── */
   .drf-panel { right: auto; left: 0; }
@@ -2227,7 +2233,7 @@ select.settings-input {
   .uc-stat            { flex: 1 1 100%; border-right: none; }
   .uc-stat:nth-child(odd) { border-right: none; }
 
-  .mu-select   { font-size: 10px; padding: 4px 8px; }
+  .mu-select   { height: 36px; font-size: 16px; padding: 0 26px 0 8px; }
   .fdd-trigger { font-size: 9px; padding: 0 6px; }
   .fdd-label   { max-width: 36px; }
 
