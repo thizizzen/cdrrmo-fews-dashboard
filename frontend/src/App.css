@@ -852,6 +852,50 @@ select.settings-input {
 }
 .mu-remove-btn:hover { background: rgba(239,68,68,0.12); color: var(--red); border-color: rgba(239,68,68,0.3); }
 
+/* ── MU DROPDOWN (custom styled replace for native select) ── */
+.mu-dd-wrap { position: relative; flex: 1; min-width: 0; }
+
+.mu-dd-trigger {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 6px; width: 100%; height: 32px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 0 10px; color: var(--text-1); font-family: var(--font);
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  transition: border-color 0.2s; white-space: nowrap; overflow: hidden;
+}
+.mu-dd-trigger:hover { border-color: rgba(56,189,248,0.4); }
+.mu-dd-open { border-color: var(--blue) !important; }
+
+.mu-dd-label { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
+.mu-dd-chevron { flex-shrink: 0; color: var(--text-3); }
+
+.mu-dd-menu {
+  position: absolute; top: calc(100% + 4px); left: 0;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 4px; box-shadow: 0 12px 40px rgba(0,0,0,0.65);
+  z-index: 9999; width: max-content; min-width: 100%;
+  animation: cdp-fade 0.12s ease;
+}
+
+.mu-dd-item {
+  display: block; width: 100%; background: transparent; border: none;
+  color: var(--text-2); padding: 7px 12px; border-radius: 7px;
+  font-family: var(--font); font-size: 12px; font-weight: 600;
+  cursor: pointer; text-align: left; transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+.mu-dd-item:hover { background: var(--bg-raised); color: var(--text-1); }
+.mu-dd-item-selected { color: var(--blue) !important; background: rgba(56,189,248,0.08) !important; }
+
+/* MuDropdown inside settings-field (Add User modal) — match settings-input height */
+.settings-field .mu-dd-wrap { flex: none; width: 100%; }
+.settings-field .mu-dd-trigger {
+  height: 42px; font-size: 13px; font-weight: 500;
+  background: var(--bg-raised); border-color: var(--border);
+  border-radius: 10px; padding: 0 12px;
+}
+.settings-field .mu-dd-item { font-size: 13px; padding: 8px 12px; }
+
 .mu-add-btn {
   display: flex;
   align-items: center;
@@ -1998,7 +2042,10 @@ select.settings-input {
   .mu-row      { flex-wrap: wrap; gap: 10px; }
   .mu-info     { min-width: 0; flex: 1 1 100%; }
   .mu-controls { flex-wrap: wrap; width: 100%; gap: 6px; }
-  .mu-select   { flex: 1; min-width: 0; height: 32px; font-size: 12px !important; padding: 0 24px 0 8px; border-radius: 8px; }
+  .mu-dd-wrap  { flex: 1; min-width: 0; }
+  .mu-dd-trigger { font-size: 12px; height: 34px; }
+  .mu-dd-item  { font-size: 13px; padding: 9px 12px; }
+  .settings-field .mu-dd-trigger { height: 38px; font-size: 16px; }
   .mu-save-btn { flex: 1; }
   .mu-add-btn  { padding: 6px 10px; font-size: 11px; }
   .mu-avatar   { width: 32px; height: 32px; font-size: 10px; }
@@ -2058,10 +2105,10 @@ select.settings-input {
   /* 3 dropdowns share remaining space equally */
   .logs-filters-row > .fdd-wrap { flex: 1 1 0; min-width: 0; }
 
-  /* Reset + download fixed width at end */
+  /* Reset + download fixed width at end — same size */
   .logs-filters-row > .logs-reset-icon-btn {
-    flex: 0 0 30px; width: 30px; height: 32px;
-    border-radius: 8px; font-size: 12px;
+    flex: 0 0 32px; width: 32px; height: 32px;
+    border-radius: 8px; font-size: 15px;
   }
   .logs-filters-row > .export-menu-wrap { flex: 0 0 32px; }
 

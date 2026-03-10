@@ -156,7 +156,7 @@ const LOG_TYPES_BY_ROLE = {
   Operator: ["info", "warning", "danger"],
 };
 
-const ROWS_PER_PAGE = 30;
+const ROWS_PER_PAGE = 15;
 
 // ─── EXPORT HELPERS ───────────────────────────────────────────────────────────
 function exportToXLSX(rows) {
@@ -686,20 +686,19 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div className="settings-field">
               <label className="settings-label">Role</label>
-              <select className="settings-input" value={form.role} onChange={e => set("role", e.target.value)} style={{ cursor: "pointer" }}>
-                <option>Admin</option>
-                <option>Operator</option>
-              </select>
+              <MuDropdown
+                value={form.role}
+                options={["Admin", "Operator"]}
+                onChange={val => set("role", val)}
+              />
             </div>
             <div className="settings-field">
               <label className="settings-label">Department</label>
-              <select className="settings-input" value={form.department} onChange={e => set("department", e.target.value)} style={{ cursor: "pointer" }}>
-                <option>Operations</option>
-                <option>Field Unit A</option>
-                <option>Field Unit B</option>
-                <option>Command Post</option>
-                <option>Admin Office</option>
-              </select>
+              <MuDropdown
+                value={form.department}
+                options={["Operations", "Field Unit A", "Field Unit B", "Command Post", "Admin Office"]}
+                onChange={val => set("department", val)}
+              />
             </div>
           </div>
         </div>
@@ -1397,6 +1396,49 @@ function LogsPage({ token, userRole }) {
 }
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
+// ─── MU DROPDOWN (custom styled dropdown for Manage Users) ───────────────────
+function MuDropdown({ value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+
+  useEffect(() => {
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const selected = options.find(o => o === value) || value;
+
+  return (
+    <div className="mu-dd-wrap" ref={ref}>
+      <button
+        type="button"
+        className={`mu-dd-trigger ${open ? "mu-dd-open" : ""}`}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="mu-dd-label">{selected}</span>
+        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" className="mu-dd-chevron">
+          <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </button>
+      {open && (
+        <div className="mu-dd-menu">
+          {options.map(opt => (
+            <button
+              key={opt}
+              type="button"
+              className={`mu-dd-item ${opt === value ? "mu-dd-item-selected" : ""}`}
+              onClick={() => { onChange(opt); setOpen(false); }}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog }) {
   const [showEmail, setShowEmail]           = useState(false);
   const [showPassword, setShowPassword]     = useState(false);
@@ -1597,13 +1639,16 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
                       </div>
                       <div className="mu-info"><div className="mu-name">{u.name}</div><div className="mu-email">{u.email}</div></div>
                       <div className="mu-controls">
-                        <select className="mu-select" value={d.role} onChange={e => handleDraft(u.id, "role", e.target.value)}>
-                          <option>Admin</option>
-                          <option>Operator</option>
-                        </select>
-                        <select className="mu-select" value={d.department} onChange={e => handleDraft(u.id, "department", e.target.value)}>
-                          <option>Operations</option><option>Field Unit A</option><option>Field Unit B</option><option>Command Post</option><option>Admin Office</option>
-                        </select>
+                        <MuDropdown
+                          value={d.role}
+                          options={["Admin", "Operator"]}
+                          onChange={val => handleDraft(u.id, "role", val)}
+                        />
+                        <MuDropdown
+                          value={d.department}
+                          options={["Operations", "Field Unit A", "Field Unit B", "Command Post", "Admin Office"]}
+                          onChange={val => handleDraft(u.id, "department", val)}
+                        />
                         <button className="mu-save-btn" disabled={!changed} onClick={() => setConfirmSave(u)}>Save</button>
                         <button className="mu-remove-btn" onClick={() => setConfirmRemove(u)}>✕</button>
                       </div>
