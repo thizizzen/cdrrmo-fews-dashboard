@@ -9,6 +9,7 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
+  TimeScale,
   PointElement,
   LineElement,
   BarElement,
@@ -16,11 +17,12 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import "chartjs-adapter-date-fns";
 import annotationPlugin from "chartjs-plugin-annotation";
 import Login from "./Login";
 
 ChartJS.register(
-  CategoryScale, LinearScale, PointElement,
+  CategoryScale, LinearScale, TimeScale, PointElement,
   LineElement, BarElement, Title, Tooltip, Legend,
   annotationPlugin
 );
@@ -1868,13 +1870,7 @@ export default function App() {
 
         const labels = rows.map((r) => {
           const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
-          const d = new Date(utcStr);
-          return new Intl.DateTimeFormat("en-PH", {
-            timeZone: "Asia/Manila",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          }).format(d);
+          return new Date(utcStr).getTime(); // store as ms timestamp
         });
 
         setHistoryLabels(labels);
@@ -1908,10 +1904,9 @@ export default function App() {
 
   // ─── WATER LEVEL CHART (fixed 0-500cm with threshold zones) ──────────────
   const waterChartData = {
-    labels: historyLabels,
     datasets: [{
       label: "FEWS 1",
-      data: historyData,
+      data: historyLabels.map((t, i) => ({ x: t, y: historyData[i] })),
       borderColor: "#22c55e",
       backgroundColor: "rgba(34,197,94,0.08)",
       tension: 0,
@@ -2025,21 +2020,23 @@ export default function App() {
         },
       },
       x: {
+        type: "time",
+        time: {
+          unit: "minute",
+          stepSize: 5,
+          displayFormats: { minute: "HH:mm" },
+          tooltipFormat: "HH:mm:ss",
+        },
+        adapters: {
+          date: { locale: "en-PH" },
+        },
         grid: { color: "rgba(255,255,255,0.04)" },
         ticks: {
           color: "#64748b",
           maxRotation: 0,
           minRotation: 0,
           font: { size: 9 },
-          maxTicksLimit: 13,
-          callback: function(val, index) {
-            const label = this.getLabelForValue(val);
-            if (!label) return "";
-            const match = label.match(/(\d+):(\d+)/);
-            if (!match) return label;
-            const mins = parseInt(match[2]);
-            return mins % 5 === 0 ? label : "";
-          },
+          maxTicksLimit: 10,
         },
       },
     },
