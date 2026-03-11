@@ -9,7 +9,6 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  TimeScale,
   PointElement,
   LineElement,
   BarElement,
@@ -17,12 +16,11 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import "chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.esm";
 import annotationPlugin from "chartjs-plugin-annotation";
 import Login from "./Login";
 
 ChartJS.register(
-  CategoryScale, LinearScale, TimeScale, PointElement,
+  CategoryScale, LinearScale, PointElement,
   LineElement, BarElement, Title, Tooltip, Legend,
   annotationPlugin
 );
@@ -1753,7 +1751,7 @@ export default function App() {
   const [sirens, setSirens] = useState({ 1: false });
 
   // ─── Water level history state ───────────────────────────────────────────
-  const [historyData,   setHistoryData]   = useState([]);
+  const [historyData,   setHistoryData]   = useState({ positions: [], values: [], exactLabels: [] });
   const [historyLabels, setHistoryLabels] = useState([]);
 
   const addLog = useCallback(async ({ station, type, message }) => {
@@ -1897,13 +1895,45 @@ export default function App() {
         const rows = await res.json();
         if (!Array.isArray(rows) || rows.length === 0) return;
 
-        const labels = rows.map((r) => {
+        // Store raw timestamps (ms) and water level values
+        const timestamps = rows.map((r) => {
           const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
-          return new Date(utcStr).getTime(); // store as ms timestamp
+          return new Date(utcStr).getTime();
         });
 
-        setHistoryLabels(labels);
-        setHistoryData(rows.map((r) => r.water_level_cm));
+        // Generate fixed 5-min grid labels from first to last timestamp
+        const first = timestamps[0];
+        const last  = timestamps[timestamps.length - 1];
+        // Round first down to nearest 5-min mark
+        const gridStart = Math.floor(first / 300000) * 300000;
+        const gridEnd   = Math.ceil(last  / 300000) * 300000;
+        const gridLabels = [];
+        for (let t = gridStart; t <= gridEnd; t += 300000) {
+          const d = new Date(t);
+          gridLabels.push(new Intl.DateTimeFormat("en-PH", {
+            timeZone: "Asia/Manila",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }).format(d));
+        }
+
+        // Map each data point to its position on the grid (as float index)
+        const gridPositions = timestamps.map((ts) => {
+          return (ts - gridStart) / 300000; // position in grid units
+        });
+
+        setHistoryLabels(gridLabels);
+        setHistoryData({ positions: gridPositions, values: rows.map((r) => r.water_level_cm), exactLabels: timestamps.map((ts) => {
+          const d = new Date(ts);
+          return new Intl.DateTimeFormat("en-PH", {
+            timeZone: "Asia/Manila",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+          }).format(d);
+        })});
       } catch {
         // silently ignore
       }
@@ -1932,10 +1962,14 @@ export default function App() {
   if (!isLoggedIn) return <Login onLogin={handleLogin} />;
 
   // ─── WATER LEVEL CHART (fixed 0-500cm with threshold zones) ──────────────
+  const chartPoints = historyData?.positions
+    ? historyData.positions.map((x, i) => ({ x, y: historyData.values[i] }))
+    : [];
   const waterChartData = {
+    labels: historyLabels,
     datasets: [{
       label: "FEWS 1",
-      data: historyLabels.map((t, i) => ({ x: t, y: historyData[i] })),
+      data: chartPoints,
       borderColor: "#22c55e",
       backgroundColor: "rgba(34,197,94,0.08)",
       tension: 0,
@@ -1980,6 +2014,10 @@ export default function App() {
         borderColor: "#334155",
         borderWidth: 1,
         callbacks: {
+          title: (items) => {
+            const i = items[0]?.dataIndex;
+            return historyData?.exactLabels?.[i] ?? "";
+          },
           label: (ctx) => {
             const v = ctx.parsed.y;
             const status = v > 300 ? "CRITICAL" : v > 200 ? "WARNING" : "SAFE";
@@ -2049,16 +2087,6 @@ export default function App() {
         },
       },
       x: {
-        type: "time",
-        time: {
-          unit: "minute",
-          stepSize: 5,
-          displayFormats: { minute: "HH:mm" },
-          tooltipFormat: "HH:mm:ss",
-        },
-        adapters: {
-          date: { locale: "en-PH" },
-        },
         grid: { color: "rgba(255,255,255,0.04)" },
         ticks: {
           color: "#64748b",
@@ -2279,11 +2307,11 @@ export default function App() {
                   <h2>Water Level</h2>
                   <span className="card-tag">
                     {fews1Connected
-                      ? (historyData.length > 0 ? `${historyData.length} readings · Last 50min` : "Live")
+                      ? (historyData.values.length > 0 ? `${historyData.values.length} readings · Last 50min` : "Live")
                       : "Waiting for data"}
                   </span>
                 </div>
-                {fews1Connected && historyData.length > 0 ? (
+                {fews1Connected && historyData.values.length > 0 ? (
                   <div className="chart-wrap">
                     <Line data={waterChartData} options={waterChartOptions} />
                   </div>
