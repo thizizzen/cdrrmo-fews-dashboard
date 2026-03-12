@@ -2343,8 +2343,10 @@ export default function App() {
                                 </span>
                               )}
                               <br />
-                              <span style={{ color: cfg.color, fontWeight:700 }}>{cfg.label}</span>
-                              {" · "}Water: {fews1Connected ? `${f.waterLevel}cm` : "—"} · Battery: {f.battery}%<br />
+                              {fews1Connected && (
+                                <><span style={{ color: cfg.color, fontWeight:700 }}>{cfg.label}</span>{" · "}</>
+                              )}
+                              Water: {fews1Connected ? `${f.waterLevel}cm` : "—"} · Battery: {fews1Connected ? `${f.battery}%` : "—"}<br />
                               <button onClick={() => {
                                 navigator.clipboard.writeText(`${f.lat}, ${f.lng}`);
                                 setCopiedId(f.id);
