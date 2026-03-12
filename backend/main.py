@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 
-from database import get_db, init_db
+from database import get_db, release_db, init_db
 from auth import hash_password, verify_password, create_token, decode_token
 
 app = FastAPI()
@@ -44,13 +44,13 @@ def startup():
             )
         """)
         # Seed FEWS 1 if not already present
-        cur.execute("SELECT id FROM fews_units WHERE device_id = 'fews1'")
+        cur.execute("SELECT id FROM fews_units WHERE device_id = 'fews_1'")
         if not cur.fetchone():
             cur.execute("""
                 INSERT INTO fews_units (device_id, name, location, installed_date, technician, description, threshold_warning, threshold_danger)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (
-                "fews1", "FEWS 1", "Bolbok", "—", "Engr. Andrew Van Ryan",
+                "fews_1", "FEWS 1", "Bolbok", "—", "Engr. Andrew Van Ryan",
                 "Deployed along the upper tributary of Sta. Rita River. Monitors early upstream surge from heavy rainfall in the Mataas na Gulod watershed.",
                 200, 300
             ))
@@ -60,7 +60,7 @@ def startup():
         conn.rollback()
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
     start_bridge_thread()
 
 # ─── AUTH HELPERS ─────────────────────────────────────────────────────────────
@@ -166,7 +166,7 @@ def login(req: LoginRequest):
         }
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 # ─── PROFILE ──────────────────────────────────────────────────────────────────
 
@@ -194,7 +194,7 @@ def update_profile(req: UpdateProfileRequest, user=Depends(get_current_user)):
         return row
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.put("/users/me/email")
 def change_email(req: ChangeEmailRequest, user=Depends(get_current_user)):
@@ -217,7 +217,7 @@ def change_email(req: ChangeEmailRequest, user=Depends(get_current_user)):
         return row
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.put("/users/me/password")
 def change_password(req: ChangePasswordRequest, user=Depends(get_current_user)):
@@ -241,7 +241,7 @@ def change_password(req: ChangePasswordRequest, user=Depends(get_current_user)):
         return {"ok": True}
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.put("/users/me/phone")
 def change_phone(req: ChangePhoneRequest, user=Depends(get_current_user)):
@@ -260,7 +260,7 @@ def change_phone(req: ChangePhoneRequest, user=Depends(get_current_user)):
         return row
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.put("/users/{user_id}/sms")
 def update_sms_enabled(user_id: int, req: SmsEnabledRequest, user=Depends(get_current_user)):
@@ -277,7 +277,7 @@ def update_sms_enabled(user_id: int, req: SmsEnabledRequest, user=Depends(get_cu
         return {"ok": True}
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 # ─── SENSOR DATA ──────────────────────────────────────────────────────────────
 
@@ -296,7 +296,7 @@ def ingest(data: SensorData):
         return {"ok": True}
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.get("/data/latest")
 def latest():
@@ -316,7 +316,7 @@ def latest():
         return result
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.get("/data/history")
 def history():
@@ -338,7 +338,7 @@ def history():
         return [dict(r) for r in rows]
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 # ─── SYSTEM LOGS ──────────────────────────────────────────────────────────────
 
@@ -356,7 +356,7 @@ def create_log(req: CreateLogRequest, user=Depends(get_current_user)):
         return cur.fetchone()
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.get("/logs")
 def get_logs(user=Depends(get_current_user)):
@@ -372,7 +372,7 @@ def get_logs(user=Depends(get_current_user)):
         return cur.fetchall()
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 # ─── USER MANAGEMENT (Admin only) ─────────────────────────────────────────────
 
@@ -385,7 +385,7 @@ def list_users(user=Depends(get_current_user)):
         return cur.fetchall()
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.post("/users")
 def create_user(req: CreateUserRequest, admin=Depends(require_admin)):
@@ -406,7 +406,7 @@ def create_user(req: CreateUserRequest, admin=Depends(require_admin)):
         return cur.fetchone()
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.put("/users/{user_id}")
 def update_user(user_id: int, req: UpdateUserRequest, admin=Depends(require_admin)):
@@ -437,7 +437,7 @@ def update_user(user_id: int, req: UpdateUserRequest, admin=Depends(require_admi
         return row
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.delete("/users/{user_id}")
 def delete_user(user_id: int, admin=Depends(require_admin)):
@@ -451,7 +451,7 @@ def delete_user(user_id: int, admin=Depends(require_admin)):
         return {"ok": True}
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.get("/")
 def root():
@@ -475,7 +475,7 @@ def get_units(user=Depends(get_current_user)):
         return cur.fetchall()
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
 
 @app.put("/units/{device_id}")
 def update_unit(device_id: str, req: UpdateUnitRequest, user=Depends(get_current_user)):
@@ -502,4 +502,4 @@ def update_unit(device_id: str, req: UpdateUnitRequest, user=Depends(get_current
         return row
     finally:
         cur.close()
-        conn.close()
+        release_db(conn)
