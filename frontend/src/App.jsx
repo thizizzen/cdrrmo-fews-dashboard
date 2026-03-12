@@ -1912,11 +1912,11 @@ export default function App() {
       const windowMs = 50 * 60 * 1000; // 50 minutes
       const winStart = now - windowMs;
 
-      // Generate fixed 5-min grid labels for the last 50 mins
-      const gridStart = Math.floor(winStart / 300000) * 300000;
-      const gridEnd   = Math.ceil(now     / 300000) * 300000;
+      // Generate fixed 5-min grid labels — round to nearest 5-min for clean display
+      const gridLabelStart = Math.ceil(winStart / 300000) * 300000;
+      const gridLabelEnd   = Math.ceil(now      / 300000) * 300000;
       const gridLabels = [];
-      for (let t = gridStart; t <= gridEnd; t += 300000) {
+      for (let t = gridLabelStart; t <= gridLabelEnd; t += 300000) {
         gridLabels.push(new Intl.DateTimeFormat("en-PH", {
           timeZone: "Asia/Manila",
           hour: "2-digit",
@@ -1942,8 +1942,9 @@ export default function App() {
         return new Date(utcStr).getTime();
       });
 
-      // Map each point to its position on the grid
-      const gridPositions = timestamps.map((ts) => (ts - gridStart) / 300000);
+      // Use exact winStart for position math so dots land correctly
+      const totalMs      = gridLabelEnd - gridLabelStart;
+      const gridPositions = timestamps.map((ts) => (ts - gridLabelStart) / 300000);
 
       const exactLabels = timestamps.map((ts) =>
         new Intl.DateTimeFormat("en-PH", {
