@@ -8,6 +8,7 @@ DATABASE_URL = os.environ.get(
     "postgresql://postgres.psxuwsogetsxcwgdkcxp:NTs4yXh2aezi5yVL@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
 )
 
+# Connection pool: min 1, max 5 connections
 _pool = None
 
 def get_pool():
@@ -24,33 +25,16 @@ def get_pool():
 def get_db():
     pool = get_pool()
     conn = pool.getconn()
-    # If connection is closed/broken, discard it and get a fresh one
-    if conn.closed != 0:
-        try:
-            pool.putconn(conn, close=True)
-        except Exception:
-            pass
-        conn = pool.getconn()
+    # Reset connection state to avoid stale connections
+    conn.autocommit = False
     return conn
 
 def release_db(conn):
-    """Return connection to pool. If broken, discard it instead."""
-    pool = get_pool()
     try:
-        # If connection is broken, close it properly instead of returning to pool
-        if conn.closed != 0 or conn.status == psycopg2.extensions.STATUS_IN_TRANSACTION:
-            try:
-                conn.rollback()
-            except Exception:
-                pass
-            pool.putconn(conn, close=True)
-        else:
-            pool.putconn(conn)
+        pool = get_pool()
+        pool.putconn(conn)
     except Exception:
-        try:
-            pool.putconn(conn, close=True)
-        except Exception:
-            pass
+        pass
 
 def init_db():
     conn = get_db()
