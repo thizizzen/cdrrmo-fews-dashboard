@@ -3,40 +3,11 @@ from mqtt_bridge import start_bridge_thread
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import psycopg2
 
-from database import get_db, release_db, init_db, reset_pool
+from database import get_db, release_db, init_db
 from auth import hash_password, verify_password, create_token, decode_token
 
 app = FastAPI()
-
-def run_with_retry(fn):
-    """Run fn(conn, cur) — retries once on SSL/connection error.
-    fn must NOT close cur or call release_db — this wrapper owns that."""
-    for attempt in range(2):
-        conn = get_db()
-        cur  = conn.cursor()
-        try:
-            result = fn(conn, cur)
-            return result
-        except psycopg2.OperationalError as e:
-            try: cur.close()
-            except Exception: pass
-            release_db(conn)
-            if attempt == 0:
-                print(f"[DB] SSL error, resetting pool and retrying: {e}")
-                reset_pool()
-                continue
-            raise
-        except Exception:
-            try: cur.close()
-            except Exception: pass
-            release_db(conn)
-            raise
-        else:
-            try: cur.close()
-            except Exception: pass
-            release_db(conn)
 
 app.add_middleware(
     CORSMiddleware,
@@ -162,7 +133,9 @@ class CreateLogRequest(BaseModel):
 
 @app.post("/login")
 def login(req: LoginRequest):
-    def _query(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute(
             "SELECT * FROM users WHERE email = %s OR name = %s",
             (req.username, req.username)
@@ -171,6 +144,7 @@ def login(req: LoginRequest):
         if not user or not verify_password(req.password, user["password"]):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         token = create_token(user["id"], user["role"])
+
         cur.execute("""
             INSERT INTO system_logs (station, type, message, user_name)
             VALUES (%s, %s, %s, %s)
@@ -180,6 +154,7 @@ def login(req: LoginRequest):
             user["name"]
         ))
         conn.commit()
+
         return {
             "token":      token,
             "username":   user["name"],
@@ -189,7 +164,9 @@ def login(req: LoginRequest):
             "id":         user["id"],
             "photo":      user.get("photo"),
         }
-    return run_with_retry(_query)
+    finally:
+        cur.close()
+        release_db(conn)
 
 # ─── PROFILE ──────────────────────────────────────────────────────────────────
 
@@ -323,7 +300,9 @@ def ingest(data: SensorData):
 
 @app.get("/data/latest")
 def latest():
-    def _query(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute("""
             SELECT DISTINCT ON (device_id) *
             FROM sensor_readings
@@ -335,11 +314,15 @@ def latest():
             key = row["device_id"].lower().replace("-", "_").replace(" ", "_")
             result[key] = dict(row)
         return result
-    return run_with_retry(_query)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.get("/data/history")
 def history():
-    def _query(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute("""
             SELECT device_id, water_level_cm, timestamp
             FROM (
@@ -354,7 +337,9 @@ def history():
         """)
         rows = cur.fetchall()
         return [dict(r) for r in rows]
-    return run_with_retry(_query)
+    finally:
+        cur.close()
+        release_db(conn)
 
 # ─── SYSTEM LOGS ──────────────────────────────────────────────────────────────
 
