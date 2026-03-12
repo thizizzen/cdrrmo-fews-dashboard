@@ -1981,8 +1981,8 @@ export default function App() {
     ? historyData.positions.map((ms, i) => ({ x: ms, y: historyData.values[i] }))
     : [];
 
-  const chartWinStart = historyData?.winStart ?? (Date.now() - 50 * 60 * 1000);
-  const chartWinEnd   = historyData?.winEnd   ?? Date.now();
+  const chartWinStart = Math.floor((historyData?.winStart ?? (Date.now() - 50 * 60 * 1000)) / 300000) * 300000;
+  const chartWinEnd   = Math.ceil((historyData?.winEnd   ?? Date.now()) / 300000) * 300000;
 
   const waterChartData = {
     datasets: [{
