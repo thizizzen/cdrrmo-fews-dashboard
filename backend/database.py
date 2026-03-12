@@ -8,7 +8,6 @@ DATABASE_URL = os.environ.get(
     "postgresql://postgres.psxuwsogetsxcwgdkcxp:NTs4yXh2aezi5yVL@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
 )
 
-# Connection pool: min 1, max 5 connections
 _pool = None
 
 def get_pool():
@@ -16,23 +15,36 @@ def get_pool():
     if _pool is None:
         _pool = psycopg2.pool.ThreadedConnectionPool(
             minconn=0,
-            maxconn=10,
+            maxconn=3,
             dsn=DATABASE_URL + "?connect_timeout=10",
             cursor_factory=psycopg2.extras.RealDictCursor
         )
     return _pool
 
+def reset_pool():
+    """Destroy the pool so the next get_pool() call creates a fresh one."""
+    global _pool
+    try:
+        if _pool:
+            _pool.closeall()
+    except Exception:
+        pass
+    _pool = None
+
 def get_db():
     pool = get_pool()
     conn = pool.getconn()
-    # Reset connection state to avoid stale connections
     conn.autocommit = False
     return conn
 
 def release_db(conn):
+    """Return connection to pool. Discard it if broken."""
     try:
         pool = get_pool()
-        pool.putconn(conn)
+        if conn.closed != 0:
+            pool.putconn(conn, close=True)
+        else:
+            pool.putconn(conn)
     except Exception:
         pass
 
@@ -52,11 +64,7 @@ def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
-
-        cur.execute("""
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT
-        """)
-
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS sensor_readings (
                 id             SERIAL PRIMARY KEY,
@@ -69,7 +77,6 @@ def init_db():
                 timestamp      TIMESTAMP DEFAULT NOW()
             )
         """)
-
         cur.execute("""
             CREATE TABLE IF NOT EXISTS system_logs (
                 id        SERIAL PRIMARY KEY,
@@ -80,7 +87,6 @@ def init_db():
                 timestamp TIMESTAMP DEFAULT NOW()
             )
         """)
-
         conn.commit()
     except Exception as e:
         conn.rollback()
