@@ -8,7 +8,6 @@ DATABASE_URL = os.environ.get(
     "postgresql://postgres.psxuwsogetsxcwgdkcxp:NTs4yXh2aezi5yVL@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
 )
 
-# Connection pool: min 1, max 5 connections
 _pool = None
 
 def get_pool():
@@ -22,17 +21,29 @@ def get_pool():
         )
     return _pool
 
+def reset_pool():
+    """Destroy and recreate the pool — used when SSL connections go stale."""
+    global _pool
+    try:
+        if _pool:
+            _pool.closeall()
+    except Exception:
+        pass
+    _pool = None
+
 def get_db():
     pool = get_pool()
     conn = pool.getconn()
-    # Reset connection state to avoid stale connections
     conn.autocommit = False
     return conn
 
 def release_db(conn):
     try:
         pool = get_pool()
-        pool.putconn(conn)
+        if conn.closed != 0:
+            pool.putconn(conn, close=True)
+        else:
+            pool.putconn(conn)
     except Exception:
         pass
 
