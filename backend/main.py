@@ -3,56 +3,11 @@ from mqtt_bridge import start_bridge_thread
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import psycopg2
 
-from database import get_db, release_db, init_db, reset_pool
+from database import get_db, release_db, init_db
 from auth import hash_password, verify_password, create_token, decode_token
 
 app = FastAPI()
-
-# ─── RETRY WRAPPER ────────────────────────────────────────────────────────────
-def db_call(fn):
-    """
-    Run fn(conn, cur) with one automatic retry on SSL/connection errors.
-    fn must NOT close cur or call release_db — this function owns cleanup.
-    On success the connection is committed and returned to the pool.
-    """
-    for attempt in range(2):
-        conn = get_db()
-        cur  = conn.cursor()
-        try:
-            result = fn(conn, cur)
-            conn.commit()
-            return result
-        except psycopg2.OperationalError as e:
-            try: conn.rollback()
-            except Exception: pass
-            try: cur.close()
-            except Exception: pass
-            release_db(conn)
-            if attempt == 0:
-                print(f"[DB] SSL/connection error, resetting pool: {e}")
-                reset_pool()
-                continue
-            raise
-        except HTTPException:
-            try: conn.rollback()
-            except Exception: pass
-            try: cur.close()
-            except Exception: pass
-            release_db(conn)
-            raise
-        except Exception:
-            try: conn.rollback()
-            except Exception: pass
-            try: cur.close()
-            except Exception: pass
-            release_db(conn)
-            raise
-        else:
-            try: cur.close()
-            except Exception: pass
-            release_db(conn)
 
 app.add_middleware(
     CORSMiddleware,
@@ -68,7 +23,9 @@ VALID_ROLES = {"Admin", "Operator"}
 def startup():
     try:
         init_db()
-        def _startup(conn, cur):
+        conn = get_db()
+        cur  = conn.cursor()
+        try:
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)")
             cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS sms_enabled BOOLEAN NOT NULL DEFAULT FALSE")
             cur.execute("""
@@ -95,7 +52,13 @@ def startup():
                     "Deployed along the upper tributary of Sta. Rita River. Monitors early upstream surge from heavy rainfall in the Mataas na Gulod watershed.",
                     200, 300
                 ))
-        db_call(_startup)
+            conn.commit()
+        except Exception as e:
+            print(f"[STARTUP] Migration error: {e}")
+            conn.rollback()
+        finally:
+            cur.close()
+            release_db(conn)
     except Exception as e:
         print(f"[STARTUP] DB connection failed, continuing anyway: {e}")
     start_bridge_thread()
@@ -109,8 +72,6 @@ def get_current_user(authorization: str = Header(...)):
             raise HTTPException(status_code=401, detail="Invalid auth scheme")
         payload = decode_token(token)
         return payload
-    except HTTPException:
-        raise
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
@@ -168,18 +129,13 @@ class CreateLogRequest(BaseModel):
     message:   str
     user_name: Optional[str] = None
 
-class UpdateUnitRequest(BaseModel):
-    installed_date:    Optional[str] = None
-    technician:        Optional[str] = None
-    description:       Optional[str] = None
-    threshold_warning: Optional[int] = None
-    threshold_danger:  Optional[int] = None
-
 # ─── AUTH ─────────────────────────────────────────────────────────────────────
 
 @app.post("/login")
 def login(req: LoginRequest):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute(
             "SELECT * FROM users WHERE email = %s OR name = %s",
             (req.username, req.username)
@@ -188,6 +144,7 @@ def login(req: LoginRequest):
         if not user or not verify_password(req.password, user["password"]):
             raise HTTPException(status_code=401, detail="Invalid credentials")
         token = create_token(user["id"], user["role"])
+
         cur.execute("""
             INSERT INTO system_logs (station, type, message, user_name)
             VALUES (%s, %s, %s, %s)
@@ -196,6 +153,8 @@ def login(req: LoginRequest):
             f"{user['name']} ({user['role']}, {user['department']}) has logged in to the system",
             user["name"]
         ))
+        conn.commit()
+
         return {
             "token":      token,
             "username":   user["name"],
@@ -205,15 +164,20 @@ def login(req: LoginRequest):
             "id":         user["id"],
             "photo":      user.get("photo"),
         }
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 # ─── PROFILE ──────────────────────────────────────────────────────────────────
 
 @app.put("/users/me")
 def update_profile(req: UpdateProfileRequest, user=Depends(get_current_user)):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         user_id = int(user["sub"])
-        fields, values = [], []
+        fields = []
+        values = []
         if req.name  is not None: fields.append("name = %s");  values.append(req.name)
         if req.photo is not None: fields.append("photo = %s"); values.append(req.photo)
         if not fields:
@@ -223,16 +187,22 @@ def update_profile(req: UpdateProfileRequest, user=Depends(get_current_user)):
             f"UPDATE users SET {', '.join(fields)} WHERE id = %s RETURNING id, name, email, role, department, photo",
             values
         )
+        conn.commit()
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         return row
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.put("/users/me/email")
 def change_email(req: ChangeEmailRequest, user=Depends(get_current_user)):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         user_id = int(user["sub"])
+        # Check email not already taken by another user
         cur.execute("SELECT id FROM users WHERE email = %s AND id != %s", (req.email, user_id))
         if cur.fetchone():
             raise HTTPException(status_code=400, detail="Email already in use by another account.")
@@ -240,15 +210,20 @@ def change_email(req: ChangeEmailRequest, user=Depends(get_current_user)):
             "UPDATE users SET email = %s WHERE id = %s RETURNING id, name, email, role, department, photo",
             (req.email, user_id)
         )
+        conn.commit()
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         return row
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.put("/users/me/password")
 def change_password(req: ChangePasswordRequest, user=Depends(get_current_user)):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         user_id = int(user["sub"])
         cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
         row = cur.fetchone()
@@ -262,52 +237,72 @@ def change_password(req: ChangePasswordRequest, user=Depends(get_current_user)):
             "UPDATE users SET password = %s WHERE id = %s RETURNING id",
             (hash_password(req.new_password), user_id)
         )
+        conn.commit()
         return {"ok": True}
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.put("/users/me/phone")
 def change_phone(req: ChangePhoneRequest, user=Depends(get_current_user)):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         user_id = int(user["sub"])
         cur.execute(
             "UPDATE users SET phone = %s WHERE id = %s RETURNING id, name, email, role, department, photo, phone",
             (req.phone, user_id)
         )
+        conn.commit()
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         return row
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.put("/users/{user_id}/sms")
 def update_sms_enabled(user_id: int, req: SmsEnabledRequest, user=Depends(get_current_user)):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute(
             "UPDATE users SET sms_enabled = %s WHERE id = %s RETURNING id",
             (req.sms_enabled, user_id)
         )
+        conn.commit()
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="User not found")
         return {"ok": True}
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 # ─── SENSOR DATA ──────────────────────────────────────────────────────────────
 
 @app.post("/data/ingest")
 def ingest(data: SensorData):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute("""
             INSERT INTO sensor_readings
                 (device_id, water_level_cm, battery_pct, status, latitude, longitude)
             VALUES (%s, %s, %s, %s, %s, %s)
         """, (data.device_id, data.water_level_cm, data.battery_pct,
               data.status, data.latitude, data.longitude))
+        conn.commit()
         return {"ok": True}
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.get("/data/latest")
 def latest():
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute("""
             SELECT DISTINCT ON (device_id) *
             FROM sensor_readings
@@ -319,11 +314,15 @@ def latest():
             key = row["device_id"].lower().replace("-", "_").replace(" ", "_")
             result[key] = dict(row)
         return result
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.get("/data/history")
 def history():
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute("""
             SELECT device_id, water_level_cm, timestamp
             FROM (
@@ -336,25 +335,35 @@ def history():
             ) sub
             ORDER BY timestamp ASC
         """)
-        return [dict(r) for r in cur.fetchall()]
-    return db_call(_q)
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        cur.close()
+        release_db(conn)
 
 # ─── SYSTEM LOGS ──────────────────────────────────────────────────────────────
 
 @app.post("/logs")
 def create_log(req: CreateLogRequest, user=Depends(get_current_user)):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute("""
             INSERT INTO system_logs (station, type, message, user_name)
             VALUES (%s, %s, %s, %s)
             RETURNING id, station, type, message, user_name, timestamp
         """, (req.station, req.type, req.message, req.user_name))
+        conn.commit()
         return cur.fetchone()
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.get("/logs")
 def get_logs(user=Depends(get_current_user)):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute("""
             SELECT id, station, type, message, user_name, timestamp
             FROM system_logs
@@ -362,20 +371,28 @@ def get_logs(user=Depends(get_current_user)):
             LIMIT 500
         """)
         return cur.fetchall()
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
-# ─── USER MANAGEMENT ──────────────────────────────────────────────────────────
+# ─── USER MANAGEMENT (Admin only) ─────────────────────────────────────────────
 
 @app.get("/users")
 def list_users(user=Depends(get_current_user)):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute("SELECT id, name, email, role, department, photo, phone, sms_enabled, created_at FROM users ORDER BY id")
         return cur.fetchall()
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.post("/users")
 def create_user(req: CreateUserRequest, admin=Depends(require_admin)):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         if req.role not in VALID_ROLES:
             raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}")
         cur.execute("SELECT id FROM users WHERE email = %s", (req.email,))
@@ -386,19 +403,27 @@ def create_user(req: CreateUserRequest, admin=Depends(require_admin)):
             VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id, name, email, role, department, phone
         """, (req.name, req.email, hash_password(req.password), req.role, req.department, req.phone))
+        conn.commit()
         return cur.fetchone()
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.put("/users/{user_id}")
 def update_user(user_id: int, req: UpdateUserRequest, admin=Depends(require_admin)):
-    def _q(conn, cur):
-        fields, values = [], []
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
+        fields = []
+        values = []
         if req.role is not None:
             if req.role not in VALID_ROLES:
-                raise HTTPException(status_code=400, detail=f"Invalid role.")
-            fields.append("role = %s"); values.append(req.role)
+                raise HTTPException(status_code=400, detail=f"Invalid role. Must be one of: {', '.join(VALID_ROLES)}")
+            fields.append("role = %s")
+            values.append(req.role)
         if req.department is not None:
-            fields.append("department = %s"); values.append(req.department)
+            fields.append("department = %s")
+            values.append(req.department)
         if not fields:
             raise HTTPException(status_code=400, detail="Nothing to update")
         values.append(user_id)
@@ -406,20 +431,28 @@ def update_user(user_id: int, req: UpdateUserRequest, admin=Depends(require_admi
             f"UPDATE users SET {', '.join(fields)} WHERE id = %s RETURNING id, name, email, role, department",
             values
         )
+        conn.commit()
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="User not found")
         return row
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.delete("/users/{user_id}")
 def delete_user(user_id: int, admin=Depends(require_admin)):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute("DELETE FROM users WHERE id = %s RETURNING id", (user_id,))
+        conn.commit()
         if not cur.fetchone():
             raise HTTPException(status_code=404, detail="User not found")
         return {"ok": True}
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.get("/")
 def root():
@@ -427,18 +460,31 @@ def root():
 
 # ─── FEWS UNITS ───────────────────────────────────────────────────────────────
 
+class UpdateUnitRequest(BaseModel):
+    installed_date:    Optional[str] = None
+    technician:        Optional[str] = None
+    description:       Optional[str] = None
+    threshold_warning: Optional[int] = None
+    threshold_danger:  Optional[int] = None
+
 @app.get("/units")
 def get_units(user=Depends(get_current_user)):
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         cur.execute("SELECT * FROM fews_units ORDER BY id")
         return cur.fetchall()
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
 
 @app.put("/units/{device_id}")
 def update_unit(device_id: str, req: UpdateUnitRequest, user=Depends(get_current_user)):
     if user["role"] not in ("Admin", "Operator"):
         raise HTTPException(status_code=403, detail="Not authorized")
-    def _q(conn, cur):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
         fields, values = [], []
         if req.installed_date    is not None: fields.append("installed_date = %s");    values.append(req.installed_date)
         if req.technician        is not None: fields.append("technician = %s");        values.append(req.technician)
@@ -450,8 +496,11 @@ def update_unit(device_id: str, req: UpdateUnitRequest, user=Depends(get_current
         fields.append("updated_at = NOW()")
         values.append(device_id)
         cur.execute(f"UPDATE fews_units SET {', '.join(fields)} WHERE device_id = %s RETURNING *", values)
+        conn.commit()
         row = cur.fetchone()
         if not row:
             raise HTTPException(status_code=404, detail="Unit not found")
         return row
-    return db_call(_q)
+    finally:
+        cur.close()
+        release_db(conn)
