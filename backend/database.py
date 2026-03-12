@@ -25,16 +25,8 @@ def get_pool():
 def get_db():
     pool = get_pool()
     conn = pool.getconn()
-    try:
-        if conn.closed or conn.status != 0:
-            pool.putconn(conn, close=True)
-            conn = pool.getconn()
-    except Exception:
-        try:
-            pool.putconn(conn, close=True)
-        except Exception:
-            pass
-        conn = pool.getconn()
+    # Reset connection state to avoid stale connections
+    conn.autocommit = False
     return conn
 
 def release_db(conn):
