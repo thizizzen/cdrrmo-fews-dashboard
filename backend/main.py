@@ -8,6 +8,8 @@ import psycopg2
 from database import get_db, release_db, init_db, reset_pool
 from auth import hash_password, verify_password, create_token, decode_token
 
+app = FastAPI()
+
 def run_with_retry(fn):
     """Run fn(conn, cur) — retries once on SSL/connection error by resetting pool."""
     for attempt in range(2):
