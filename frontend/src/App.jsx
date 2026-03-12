@@ -1907,58 +1907,72 @@ export default function App() {
 
   // ─── Fetch real water level history every 10s ─────────────────────────────
   useEffect(() => {
+    const buildChart = (rows) => {
+      const now      = Date.now();
+      const windowMs = 50 * 60 * 1000; // 50 minutes
+      const winStart = now - windowMs;
+
+      // Generate fixed 5-min grid labels for the last 50 mins
+      const gridStart = Math.floor(winStart / 300000) * 300000;
+      const gridEnd   = Math.ceil(now     / 300000) * 300000;
+      const gridLabels = [];
+      for (let t = gridStart; t <= gridEnd; t += 300000) {
+        gridLabels.push(new Intl.DateTimeFormat("en-PH", {
+          timeZone: "Asia/Manila",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        }).format(new Date(t)));
+      }
+
+      // Filter rows to only those within the 50-min window
+      const recent = (rows || []).filter((r) => {
+        const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
+        return new Date(utcStr).getTime() >= winStart;
+      });
+
+      if (recent.length === 0) {
+        setHistoryLabels(gridLabels);
+        setHistoryData({ positions: [], values: [], exactLabels: [] });
+        return;
+      }
+
+      const timestamps = recent.map((r) => {
+        const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
+        return new Date(utcStr).getTime();
+      });
+
+      // Map each point to its position on the grid
+      const gridPositions = timestamps.map((ts) => (ts - gridStart) / 300000);
+
+      const exactLabels = timestamps.map((ts) =>
+        new Intl.DateTimeFormat("en-PH", {
+          timeZone: "Asia/Manila",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        }).format(new Date(ts))
+      );
+
+      setHistoryLabels(gridLabels);
+      setHistoryData({ positions: gridPositions, values: recent.map((r) => r.water_level_cm), exactLabels });
+    };
+
     const fetchHistory = async () => {
       try {
         const res = await fetch(`${API_BASE}/data/history`);
         if (!res.ok) return;
         const rows = await res.json();
-        if (!Array.isArray(rows) || rows.length === 0) return;
-
-        // Store raw timestamps (ms) and water level values
-        const timestamps = rows.map((r) => {
-          const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
-          return new Date(utcStr).getTime();
-        });
-
-        // Generate fixed 5-min grid labels from first to last timestamp
-        const first = timestamps[0];
-        const last  = timestamps[timestamps.length - 1];
-        // Round first down to nearest 5-min mark
-        const gridStart = Math.floor(first / 300000) * 300000;
-        const gridEnd   = Math.ceil(last  / 300000) * 300000;
-        const gridLabels = [];
-        for (let t = gridStart; t <= gridEnd; t += 300000) {
-          const d = new Date(t);
-          gridLabels.push(new Intl.DateTimeFormat("en-PH", {
-            timeZone: "Asia/Manila",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          }).format(d));
-        }
-
-        // Map each data point to its position on the grid (as float index)
-        const gridPositions = timestamps.map((ts) => {
-          return (ts - gridStart) / 300000; // position in grid units
-        });
-
-        setHistoryLabels(gridLabels);
-        setHistoryData({ positions: gridPositions, values: rows.map((r) => r.water_level_cm), exactLabels: timestamps.map((ts) => {
-          const d = new Date(ts);
-          return new Intl.DateTimeFormat("en-PH", {
-            timeZone: "Asia/Manila",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: false,
-          }).format(d);
-        })});
+        if (!Array.isArray(rows)) return;
+        buildChart(rows);
       } catch {
         // silently ignore
       }
     };
 
     fetchHistory();
+    // Rebuild chart every 10s (also refreshes the time window)
     const interval = setInterval(fetchHistory, 10000);
     return () => clearInterval(interval);
   }, []);

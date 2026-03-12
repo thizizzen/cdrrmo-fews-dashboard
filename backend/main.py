@@ -329,6 +329,7 @@ def history():
                 SELECT device_id, water_level_cm, timestamp
                 FROM sensor_readings
                 WHERE device_id = 'fews_1'
+                  AND timestamp >= NOW() - INTERVAL '50 minutes'
                 ORDER BY timestamp DESC
                 LIMIT 10
             ) sub
