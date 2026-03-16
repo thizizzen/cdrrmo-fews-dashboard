@@ -8,7 +8,6 @@ DATABASE_URL = os.environ.get(
     "postgresql://postgres.psxuwsogetsxcwgdkcxp:NTs4yXh2aezi5yVL@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
 )
 
-# Connection pool: min 1, max 5 connections
 _pool = None
 
 def get_pool():
@@ -25,7 +24,6 @@ def get_pool():
 def get_db():
     pool = get_pool()
     conn = pool.getconn()
-    # Reset connection state to avoid stale connections
     conn.autocommit = False
     return conn
 
@@ -66,8 +64,13 @@ def init_db():
                 status         TEXT,
                 latitude       REAL,
                 longitude      REAL,
+                is_immediate   BOOLEAN NOT NULL DEFAULT FALSE,
                 timestamp      TIMESTAMP DEFAULT NOW()
             )
+        """)
+
+        cur.execute("""
+            ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS is_immediate BOOLEAN NOT NULL DEFAULT FALSE
         """)
 
         cur.execute("""

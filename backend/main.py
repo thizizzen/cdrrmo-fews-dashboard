@@ -93,6 +93,7 @@ class SensorData(BaseModel):
     status:         str
     latitude:       Optional[float] = None
     longitude:      Optional[float] = None
+    is_immediate:   Optional[bool]  = False
 
 class CreateUserRequest(BaseModel):
     name:       str
@@ -287,10 +288,10 @@ def ingest(data: SensorData):
     try:
         cur.execute("""
             INSERT INTO sensor_readings
-                (device_id, water_level_cm, battery_pct, status, latitude, longitude)
-            VALUES (%s, %s, %s, %s, %s, %s)
+                (device_id, water_level_cm, battery_pct, status, latitude, longitude, is_immediate)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (data.device_id, data.water_level_cm, data.battery_pct,
-              data.status, data.latitude, data.longitude))
+              data.status, data.latitude, data.longitude, data.is_immediate))
         conn.commit()
         return {"ok": True}
     finally:
@@ -328,6 +329,7 @@ def history():
                 SELECT device_id, water_level_cm, timestamp
                 FROM sensor_readings
                 WHERE device_id = 'fews_1'
+                  AND is_immediate = FALSE
                 ORDER BY timestamp DESC
                 LIMIT 12
             ) sub
