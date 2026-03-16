@@ -2013,8 +2013,13 @@ export default function App() {
     ? historyData.positions.map((ms, i) => ({ x: ms, y: historyData.values[i] }))
     : [];
 
-  const chartWinStart = Math.floor((historyData?.winStart ?? (Date.now() - 60 * 60 * 1000)) / 300000) * 300000;
-  const chartWinEnd   = Math.ceil((historyData?.winEnd   ?? Date.now()) / 300000) * 300000;
+const CHART_PADDING = 2 * 60 * 1000;
+const chartWinStart = historyData?.positions?.length
+  ? Math.floor((historyData.positions[0] - CHART_PADDING) / 300000) * 300000
+  : Math.floor((Date.now() - 60 * 60 * 1000) / 300000) * 300000;
+const chartWinEnd = historyData?.positions?.length
+  ? Math.ceil((historyData.positions[historyData.positions.length - 1] + CHART_PADDING) / 300000) * 300000
+  : Math.ceil(Date.now() / 300000) * 300000;
 
   const waterChartData = {
     datasets: [{
@@ -2369,7 +2374,7 @@ export default function App() {
                   <h2>Water Level</h2>
                   <span className="card-tag">
                     {fews1Connected
-                      ? (historyData.values.length > 0 ? `${historyData.values.length} readings · Last 1hr` : "Live")
+                      ? (historyData.values.length > 0 ? `${historyData.values.length} readings` : "Live")
                       : "Waiting for data"}
                   </span>
                 </div>

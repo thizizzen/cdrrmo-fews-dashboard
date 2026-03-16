@@ -48,7 +48,7 @@ def startup():
                     INSERT INTO fews_units (device_id, name, location, installed_date, technician, description, threshold_warning, threshold_danger)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
-                    "fews_1", "FEWS 1", "Bolbok", "—", "Engr. Andrew Van Ryan",
+                    "fews_1", "FEWS 1", "Bolbok", "-", "Engr. Andrew Van Ryan",
                     "Deployed along the upper tributary of Sta. Rita River. Monitors early upstream surge from heavy rainfall in the Mataas na Gulod watershed.",
                     200, 300
                 ))
@@ -63,7 +63,7 @@ def startup():
         print(f"[STARTUP] DB connection failed, continuing anyway: {e}")
     start_bridge_thread()
 
-# ─── AUTH HELPERS ─────────────────────────────────────────────────────────────
+# --- AUTH HELPERS ---
 
 def get_current_user(authorization: str = Header(...)):
     try:
@@ -80,7 +80,7 @@ def require_admin(user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
-# ─── SCHEMAS ──────────────────────────────────────────────────────────────────
+# --- SCHEMAS ---
 
 class LoginRequest(BaseModel):
     username: str
@@ -129,7 +129,7 @@ class CreateLogRequest(BaseModel):
     message:   str
     user_name: Optional[str] = None
 
-# ─── AUTH ─────────────────────────────────────────────────────────────────────
+# --- AUTH ---
 
 @app.post("/login")
 def login(req: LoginRequest):
@@ -168,7 +168,7 @@ def login(req: LoginRequest):
         cur.close()
         release_db(conn)
 
-# ─── PROFILE ──────────────────────────────────────────────────────────────────
+# --- PROFILE ---
 
 @app.put("/users/me")
 def update_profile(req: UpdateProfileRequest, user=Depends(get_current_user)):
@@ -202,7 +202,6 @@ def change_email(req: ChangeEmailRequest, user=Depends(get_current_user)):
     cur  = conn.cursor()
     try:
         user_id = int(user["sub"])
-        # Check email not already taken by another user
         cur.execute("SELECT id FROM users WHERE email = %s AND id != %s", (req.email, user_id))
         if cur.fetchone():
             raise HTTPException(status_code=400, detail="Email already in use by another account.")
@@ -279,7 +278,7 @@ def update_sms_enabled(user_id: int, req: SmsEnabledRequest, user=Depends(get_cu
         cur.close()
         release_db(conn)
 
-# ─── SENSOR DATA ──────────────────────────────────────────────────────────────
+# --- SENSOR DATA ---
 
 @app.post("/data/ingest")
 def ingest(data: SensorData):
@@ -329,9 +328,8 @@ def history():
                 SELECT device_id, water_level_cm, timestamp
                 FROM sensor_readings
                 WHERE device_id = 'fews_1'
-                  AND timestamp >= NOW() - INTERVAL '50 minutes'
                 ORDER BY timestamp DESC
-                LIMIT 10
+                LIMIT 12
             ) sub
             ORDER BY timestamp ASC
         """)
@@ -341,7 +339,7 @@ def history():
         cur.close()
         release_db(conn)
 
-# ─── SYSTEM LOGS ──────────────────────────────────────────────────────────────
+# --- SYSTEM LOGS ---
 
 @app.post("/logs")
 def create_log(req: CreateLogRequest, user=Depends(get_current_user)):
@@ -375,7 +373,7 @@ def get_logs(user=Depends(get_current_user)):
         cur.close()
         release_db(conn)
 
-# ─── USER MANAGEMENT (Admin only) ─────────────────────────────────────────────
+# --- USER MANAGEMENT (Admin only) ---
 
 @app.get("/users")
 def list_users(user=Depends(get_current_user)):
@@ -458,7 +456,7 @@ def delete_user(user_id: int, admin=Depends(require_admin)):
 def root():
     return {"status": "CDRRMO FEWS API online"}
 
-# ─── FEWS UNITS ───────────────────────────────────────────────────────────────
+# --- FEWS UNITS ---
 
 class UpdateUnitRequest(BaseModel):
     installed_date:    Optional[str] = None
