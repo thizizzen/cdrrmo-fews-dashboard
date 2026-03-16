@@ -1,6 +1,5 @@
 import psycopg2
 import psycopg2.extras
-import psycopg2.pool
 import os
 
 DATABASE_URL = os.environ.get(
@@ -8,29 +7,19 @@ DATABASE_URL = os.environ.get(
     "postgresql://postgres.psxuwsogetsxcwgdkcxp:NTs4yXh2aezi5yVL@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
 )
 
-_pool = None
-
-def get_pool():
-    global _pool
-    if _pool is None:
-        _pool = psycopg2.pool.ThreadedConnectionPool(
-            minconn=0,
-            maxconn=5,
-            dsn=DATABASE_URL + "?connect_timeout=10",
-            cursor_factory=psycopg2.extras.RealDictCursor
-        )
-    return _pool
-
 def get_db():
-    pool = get_pool()
-    conn = pool.getconn()
+    conn = psycopg2.connect(
+        DATABASE_URL + "?connect_timeout=10",
+        cursor_factory=psycopg2.extras.RealDictCursor
+    )
     conn.autocommit = False
     return conn
 
 def release_db(conn):
+    if conn is None:
+        return
     try:
-        pool = get_pool()
-        pool.putconn(conn)
+        conn.close()
     except Exception:
         pass
 
