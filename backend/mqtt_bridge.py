@@ -6,8 +6,8 @@ import paho.mqtt.client as mqtt
 from database import get_db, release_db
 
 # ─── SEMAPHORE SMS ────────────────────────────────────────────────────────────
-SEMAPHORE_API_KEY = "9a340cae60906c4fc591a20a24ace1b7"   # replace with real key
-SEMAPHORE_SENDER  = "CDRRMO"                    # approved sender name
+SEMAPHORE_API_KEY = "9a340cae60906c4fc591a20a24ace1b7"
+SEMAPHORE_SENDER  = "CDRRMO"
 
 def send_sms_to_all():
     """Send CRITICAL alert SMS to all users with sms_enabled=True and a phone number."""
@@ -84,15 +84,15 @@ def on_message(client, userdata, msg):
         status         = data.get("status")
         latitude       = data.get("latitude")
         longitude      = data.get("longitude")
+        is_immediate   = data.get("is_immediate", False)  # NEW
 
         conn = get_db()
         cur  = conn.cursor()
         try:
-            # Save sensor reading
             cur.execute("""
                 INSERT INTO sensor_readings
-                    (device_id, water_level_cm, battery_pct, status, latitude, longitude)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                    (device_id, water_level_cm, battery_pct, status, latitude, longitude, is_immediate)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 station_id,
                 water_level_cm,
@@ -100,14 +100,14 @@ def on_message(client, userdata, msg):
                 status,
                 latitude,
                 longitude,
+                is_immediate,  # NEW
             ))
 
-            # Auto-log the reading to system_logs
-            log_type         = water_level_to_type(water_level_cm)
-            status_label     = water_level_to_status_label(water_level_cm)
-            station_name     = "FEWS 1"
-            battery_str      = f"{battery_pct}%" if battery_pct is not None else "N/A"
-            water_str        = f"{water_level_cm} cm" if water_level_cm is not None else "N/A"
+            log_type     = water_level_to_type(water_level_cm)
+            status_label = water_level_to_status_label(water_level_cm)
+            station_name = "FEWS 1"
+            battery_str  = f"{battery_pct}%" if battery_pct is not None else "N/A"
+            water_str    = f"{water_level_cm} cm" if water_level_cm is not None else "N/A"
 
             log_message = (
                 f"{station_name} reading — "
@@ -126,9 +126,8 @@ def on_message(client, userdata, msg):
             ))
 
             conn.commit()
-            print(f"[BRIDGE] Saved → {station_id} {water_level_cm}cm {status} | Logged as [{log_type.upper()}]")
+            print(f"[BRIDGE] Saved → {station_id} {water_level_cm}cm {status} is_immediate={is_immediate} | Logged as [{log_type.upper()}]")
 
-            # Fire SMS in background if CRITICAL
             if log_type == "danger":
                 threading.Thread(target=send_sms_to_all, daemon=True).start()
         finally:
