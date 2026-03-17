@@ -721,7 +721,7 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
 
 // ─── PROFILE DROPDOWN ─────────────────────────────────────────────────────────
 // CHANGED: removed `saved` state, save now auto-closes after spinner
-function ProfileDropdown({ user, token, onSave, onClose }) {
+function ProfileDropdown({ user, token, onSave, onClose, addLog }) {
   const ref                   = useRef();
   const fileRef               = useRef();
   const [editing, setEditing] = useState(false);
@@ -758,6 +758,11 @@ function ProfileDropdown({ user, token, onSave, onClose }) {
       const updated = await res.json();
       const initials = updated.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
       onSave({ ...user, name: updated.name, photo: updated.photo, initials });
+      addLog({
+        station: "System",
+        type: "system",
+        message: `${updated.name} updated their profile`,
+      });
       onClose();
     } catch {
       setError("Failed to save. Try again.");
@@ -829,6 +834,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
   const [infoSaving, setInfoSaving]       = useState({});
   const [pendingToggle, setPendingToggle] = useState(null);
   const [powerSaving, setPowerSaving]     = useState({});
+  const [loadError, setLoadError]         = useState(false);
 
   const canControl = can(userRole, "unitControl");
 
@@ -837,6 +843,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
       .then(r => r.json())
       .then(rows => {
         if (!Array.isArray(rows)) return;
+        setLoadError(false);
         setFewsData(prev => prev.map(f => {
           const row = rows.find(r => r.device_id === (f.deviceId || "fews" + f.id));
           if (!row) return f;
@@ -864,7 +871,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
           return next;
         });
       })
-      .catch(() => {});
+      .catch(() => setLoadError(true));
   }, [token]);
 
   const getDeviceId = (id) => "fews" + id;
@@ -954,6 +961,11 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
         />
       )}
       <div className="page-body">
+        {loadError && (
+          <div style={{ background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:10, padding:"12px 16px", color:"var(--red)", fontSize:12, fontWeight:600 }}>
+            ⚠️ Failed to load unit data — showing defaults. Check your connection and refresh.
+          </div>
+        )}
         {fewsData.map(f => {
           const cfg = STATUS_CONFIG[f.status] || STATUS_CONFIG["safe"];
           const on  = units[f.id] && (f.isLive ? fews1Connected : true);
@@ -1248,6 +1260,7 @@ function ExportMenu({ filtered, exporting, setExporting }) {
 function LogsPage({ token, userRole }) {
   const [logs, setLogs]                       = useState([]);
   const [loading, setLoading]                 = useState(true);
+  const [fetchError, setFetchError]           = useState(false);
   const [search, setSearch]                   = useState("");
   const [filterStation, setFilterStation]     = useState("All");
   const [filterType, setFilterType]           = useState("All");
@@ -1265,9 +1278,10 @@ function LogsPage({ token, userRole }) {
         if (Array.isArray(data)) {
           const parsed = data.map(parseLog).filter(l => allowedTypes.includes(l.type));
           setLogs(parsed);
+          setFetchError(false);
         }
       })
-      .catch(() => {})
+      .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
   }, [token, userRole]);
 
@@ -1366,6 +1380,12 @@ function LogsPage({ token, userRole }) {
               <div style={{ fontSize:24, marginBottom:8 }}>⏳</div>
               <div style={{ color:"var(--text-2)", fontWeight:600 }}>Loading logs…</div>
             </div>
+          ) : fetchError ? (
+            <div className="logs-empty">
+              <div style={{ fontSize:28, marginBottom:8 }}>⚠️</div>
+              <div style={{ color:"var(--red)", fontWeight:600 }}>Failed to load logs</div>
+              <div style={{ color:"var(--text-3)", fontSize:11, marginTop:4 }}>Check your connection and try refreshing</div>
+            </div>
           ) : pageRows.length === 0 ? (
             <div className="logs-empty">
               <div style={{ fontSize:28, marginBottom:8 }}>🔍</div>
@@ -1456,6 +1476,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
   const [confirmSms, setConfirmSms]         = useState(null);
   const [users, setUsers]                   = useState([]);
   const [loadingUsers, setLoadingUsers]     = useState(false);
+  const [loadUsersError, setLoadUsersError] = useState(false);
   const [drafts, setDrafts]                 = useState({});
   const [savingIds, setSavingIds]           = useState({});
   const [confirmSave, setConfirmSave]       = useState(null);
@@ -1471,10 +1492,11 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
 
   useEffect(() => {
     setLoadingUsers(true);
+    setLoadUsersError(false);
     fetch(`${API_BASE}/users`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(data => { setUsers(Array.isArray(data) ? data : []); })
-      .catch(() => {})
+      .catch(() => setLoadUsersError(true))
       .finally(() => setLoadingUsers(false));
   }, [token]);
 
@@ -1635,6 +1657,8 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
             </div>
             {loadingUsers ? (
               <div style={{ color: "var(--text-3)", fontSize: 12, padding: "12px 0" }}>Loading users…</div>
+            ) : loadUsersError ? (
+              <div style={{ color: "var(--red)", fontSize: 12, padding: "12px 0" }}>⚠️ Failed to load users — check your connection and refresh.</div>
             ) : (
               <div className="mu-list">
                 {users.map(u => {
@@ -1737,6 +1761,7 @@ export default function App() {
   const [activeNav, setActiveNav]                     = useState("Dashboard");
   const markerRefs = useRef({});
   const [copiedId, setCopiedId] = useState(null);
+  const copiedTimerRef = useRef(null);
 
   const [fews1Live, setFews1Live]           = useState(null);
   const [fews1Connected, setFews1Connected] = useState(false);
@@ -1745,7 +1770,13 @@ export default function App() {
   const [user, setUser] = useState(() => {
     try {
       const stored = sessionStorage.getItem("user");
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Validate required fields — if shape is wrong, fall through to default
+        if (parsed && typeof parsed.name === "string" && typeof parsed.role === "string" && parsed.role) {
+          return parsed;
+        }
+      }
     } catch {}
     return { name: "", role: "Operator", department: "", initials: "?", dob: "", photo: null, email: "" };
   });
@@ -1813,7 +1844,12 @@ export default function App() {
     setShowLogoutModal(false);
   };
 
-  useEffect(() => { window.__onMobileLogout = () => setShowLogoutModal(true); return () => { delete window.__onMobileLogout; }; }, []);
+  const mobileLogoutRef = useRef(null);
+  mobileLogoutRef.current = () => setShowLogoutModal(true);
+  useEffect(() => {
+    window.__onMobileLogout = () => { if (mobileLogoutRef.current) mobileLogoutRef.current(); };
+    return () => { delete window.__onMobileLogout; };
+  }, []);
 
   const navItems = useMemo(() =>
     ALL_NAV_ITEMS.filter(item => ROLE_ACCESS[user.role]?.includes(item.key)),
@@ -1825,24 +1861,14 @@ export default function App() {
   const offlineTimeRef  = useRef(null);
   const offlineTimerRef = useRef(null);
 
+  // Restore offline state from sessionStorage on mount
   useEffect(() => {
     const storedOfflineTime = sessionStorage.getItem("fews1_offline_time");
     const storedWasOffline  = sessionStorage.getItem("fews1_was_offline");
-    const storedLogged      = sessionStorage.getItem("fews1_offline_logged");
-
-    if (storedOfflineTime) {
-      offlineTimeRef.current  = parseInt(storedOfflineTime, 10);
-    }
     if (storedWasOffline === "true") {
       wasConnectedRef.current = false;
-      if (storedLogged !== "true" && storedOfflineTime) {
-        const elapsed   = Date.now() - parseInt(storedOfflineTime, 10);
-        const remaining = Math.max(0, 120000 - elapsed);
-        offlineTimerRef.current = setTimeout(() => {
-          addLog({ station: "FEWS 1", type: "warning", message: `FEWS 1 went offline — no data received` });
-          sessionStorage.setItem("fews1_offline_logged", "true");
-          offlineTimerRef.current = null;
-        }, remaining);
+      if (storedOfflineTime) {
+        offlineTimeRef.current = parseInt(storedOfflineTime, 10);
       }
     }
   }, []);
@@ -1851,29 +1877,53 @@ export default function App() {
     setFews1Connected(true);
     setLastUpdated(new Date());
 
-    const wasOffline = wasConnectedRef.current === false || sessionStorage.getItem("fews1_was_offline") === "true";
-    const offlineTime = offlineTimeRef.current || parseInt(sessionStorage.getItem("fews1_offline_time") || "0", 10);
-
-    if (wasOffline && offlineTime) {
-      if (offlineTimerRef.current) {
-        clearTimeout(offlineTimerRef.current);
-        offlineTimerRef.current = null;
-      } else {
+    if (wasConnectedRef.current === false) {
+      // Coming back from a known offline state
+      const offlineTime = offlineTimeRef.current;
+      if (offlineTime) {
         const diffMs   = Date.now() - offlineTime;
         const diffMins = Math.floor(diffMs / 60000);
-        if (diffMins >= 2) {
-          const hours    = Math.floor(diffMins / 60);
-          const mins     = diffMins % 60;
-          const duration = hours > 0
-            ? `${hours} hour${hours > 1 ? "s" : ""} ${mins} minute${mins !== 1 ? "s" : ""}`
-            : `${mins} minute${mins !== 1 ? "s" : ""}`;
-          addLog({ station: "FEWS 1", type: "system", message: `FEWS 1 is back online after ${duration} of inactivity` });
+        const diffSecs = Math.floor((diffMs % 60000) / 1000);
+        let duration;
+        if (diffMins >= 60) {
+          const hours = Math.floor(diffMins / 60);
+          const mins  = diffMins % 60;
+          duration = mins > 0
+            ? `${hours} hour${hours !== 1 ? "s" : ""} ${mins} minute${mins !== 1 ? "s" : ""}`
+            : `${hours} hour${hours !== 1 ? "s" : ""}`;
+        } else if (diffMins > 0) {
+          duration = `${diffMins} minute${diffMins !== 1 ? "s" : ""}`;
+        } else {
+          duration = `${diffSecs} second${diffSecs !== 1 ? "s" : ""}`;
         }
+        addLog({
+          station: "FEWS 1", type: "system",
+          message: `FEWS 1 is back online after ${duration} of inactivity`,
+        });
+      } else {
+        addLog({
+          station: "FEWS 1", type: "system",
+          message: `FEWS 1 is back online`,
+        });
       }
       offlineTimeRef.current = null;
       sessionStorage.removeItem("fews1_offline_time");
       sessionStorage.removeItem("fews1_was_offline");
-      sessionStorage.removeItem("fews1_offline_logged");
+    } else if (wasConnectedRef.current === null) {
+      // First data received since page load — only log once per session
+      if (!sessionStorage.getItem("fews1_initial_logged")) {
+        addLog({
+          station: "FEWS 1", type: "system",
+          message: `FEWS 1 is online and transmitting data`,
+        });
+        sessionStorage.setItem("fews1_initial_logged", "true");
+      }
+    }
+
+    // Cancel any pending offline timer
+    if (offlineTimerRef.current) {
+      clearTimeout(offlineTimerRef.current);
+      offlineTimerRef.current = null;
     }
 
     wasConnectedRef.current = true;
@@ -1883,18 +1933,17 @@ export default function App() {
     setFews1Live(null);
     setFews1Connected(false);
 
-    const wasOnline = wasConnectedRef.current === true;
-    if (wasOnline && !offlineTimerRef.current && !sessionStorage.getItem("fews1_was_offline")) {
+    // Only log and record offline time on first transition from online → offline
+    if (wasConnectedRef.current === true && !offlineTimeRef.current) {
       const offlineTime = Date.now();
       offlineTimeRef.current = offlineTime;
       sessionStorage.setItem("fews1_offline_time", String(offlineTime));
       sessionStorage.setItem("fews1_was_offline", "true");
-
-      offlineTimerRef.current = setTimeout(() => {
-        addLog({ station: "FEWS 1", type: "warning", message: `FEWS 1 went offline — no data received` });
-        sessionStorage.setItem("fews1_offline_logged", "true");
-        offlineTimerRef.current = null;
-      }, 120000);
+      sessionStorage.removeItem("fews1_initial_logged");
+      addLog({
+        station: "FEWS 1", type: "warning",
+        message: `FEWS 1 went offline — no data received`,
+      });
     }
 
     wasConnectedRef.current = false;
@@ -1945,7 +1994,6 @@ export default function App() {
     poll();
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
-      if (offlineTimerRef.current) clearTimeout(offlineTimerRef.current);
     };
   }, [handleOnline, handleOffline]);
 
@@ -2291,8 +2339,9 @@ export default function App() {
                 {user.photo ? <img src={user.photo} alt="avatar" style={{ width:"100%", height:"100%", borderRadius:"50%", objectFit:"cover" }} /> : user.initials}
               </div>
               {showProfileDropdown && createPortal(
-                <div style={{ position:"fixed", top:"64px", right:"16px", zIndex:99999 }}>
-                  <ProfileDropdown user={user} token={token} onSave={u => { setUser(u); sessionStorage.setItem("user", JSON.stringify(u)); }} onClose={() => setShowProfileDropdown(false)} />
+                <div style={{ position:"fixed", top:"64px", right:"16px", zIndex:99999 }}
+                  onKeyDown={e => { if (e.key === "Escape") setShowProfileDropdown(false); }}>
+                  <ProfileDropdown user={user} token={token} onSave={u => { setUser(u); sessionStorage.setItem("user", JSON.stringify(u)); }} onClose={() => setShowProfileDropdown(false)} addLog={addLog} />
                 </div>, document.body
               )}
             </div>
@@ -2342,7 +2391,8 @@ export default function App() {
                               <button onClick={() => {
                                 navigator.clipboard.writeText(`${f.lat}, ${f.lng}`);
                                 setCopiedId(f.id);
-                                setTimeout(() => setCopiedId(null), 1500);
+                                if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+                                copiedTimerRef.current = setTimeout(() => { setCopiedId(null); copiedTimerRef.current = null; }, 1500);
                               }} style={{ marginTop:"7px", padding:"3px 8px", background: copiedId===f.id?"#22c55e":cfg.color, color:"#000", border:"none", outline:"none", boxShadow:"none", borderRadius:"4px", cursor:"pointer", fontWeight:"700", fontSize:"10px", width:"100%", transition:"background 0.2s" }}>
                                 {copiedId===f.id ? "Copied!" : "📋 Copy Coordinates"}
                               </button>
