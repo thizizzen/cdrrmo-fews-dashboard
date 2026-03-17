@@ -720,6 +720,7 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
 }
 
 // ─── PROFILE DROPDOWN ─────────────────────────────────────────────────────────
+// CHANGED: removed `saved` state, save now auto-closes after spinner
 function ProfileDropdown({ user, token, onSave, onClose }) {
   const ref                   = useRef();
   const fileRef               = useRef();
@@ -727,7 +728,6 @@ function ProfileDropdown({ user, token, onSave, onClose }) {
   const [name, setName]       = useState(user.name);
   const [photo, setPhoto]     = useState(user.photo || null);
   const [saving, setSaving]   = useState(false);
-  const [saved, setSaved]     = useState(false);
   const [error, setError]     = useState("");
 
   useEffect(() => {
@@ -744,6 +744,7 @@ function ProfileDropdown({ user, token, onSave, onClose }) {
     reader.readAsDataURL(file);
   };
 
+  // CHANGED: spinner shows while saving, then auto-closes — no "Saved" flash
   const handleSave = async () => {
     setSaving(true);
     setError("");
@@ -757,11 +758,9 @@ function ProfileDropdown({ user, token, onSave, onClose }) {
       const updated = await res.json();
       const initials = updated.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
       onSave({ ...user, name: updated.name, photo: updated.photo, initials });
-      setSaved(true);
-      setTimeout(() => { setSaved(false); setEditing(false); }, 1200);
+      onClose();
     } catch {
       setError("Failed to save. Try again.");
-    } finally {
       setSaving(false);
     }
   };
@@ -808,7 +807,10 @@ function ProfileDropdown({ user, token, onSave, onClose }) {
           {error && <div className="settings-error" style={{ fontSize: 11 }}>{error}</div>}
           <div className="pd-edit-actions">
             <button className="pd-btn" onClick={() => { setEditing(false); setError(""); }}>Cancel</button>
-            <button className="pd-save-btn" onClick={handleSave} disabled={saving}>{saving ? <span className="btn-spinner" /> : saved ? "Saved" : "Save"}</button>
+            {/* CHANGED: no more "Saved" state — just spinner then closes */}
+            <button className="pd-save-btn" onClick={handleSave} disabled={saving}>
+              {saving ? <span className="btn-spinner" /> : "Save"}
+            </button>
           </div>
         </>
       )}
@@ -830,7 +832,6 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
 
   const canControl = can(userRole, "unitControl");
 
-  // Load unit data from DB on mount
   useEffect(() => {
     fetch(`${API_BASE}/units`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
@@ -1400,7 +1401,7 @@ function LogsPage({ token, userRole }) {
 }
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
-// ─── MU DROPDOWN (custom styled dropdown for Manage Users) ───────────────────
+// ─── MU DROPDOWN ─────────────────────────────────────────────────────────────
 function MuDropdown({ value, options, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = useRef();
@@ -1460,7 +1461,6 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
   const [confirmSave, setConfirmSave]       = useState(null);
   const [confirmRemove, setConfirmRemove]   = useState(null);
 
-
   const isAdmin = userRole === "Admin";
 
   const NOTIF_LABELS = {
@@ -1477,6 +1477,11 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
       .catch(() => {})
       .finally(() => setLoadingUsers(false));
   }, [token]);
+
+  // CHANGED: sync local users list when parent user object updates (e.g. after profile edit)
+  useEffect(() => {
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, name: user.name, photo: user.photo } : u));
+  }, [user.name, user.photo]);
 
   const getDraft    = (u) => drafts[u.id] || { role: u.role, department: u.department };
   const handleDraft = (id, key, val) => setDrafts(prev => ({ ...prev, [id]: { ...getDraft(users.find(u => u.id === id)), [key]: val } }));
@@ -1665,7 +1670,6 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
           </div>
         )}
 
-
         <div className="page-card">
           <div className="page-card-title">Alert Triggers</div>
           <div className="page-card-sub">Choose how the system alerts operators during flood events.</div>
@@ -1809,7 +1813,6 @@ export default function App() {
     setShowLogoutModal(false);
   };
 
-  // expose logout for mobile profile dropdown
   useEffect(() => { window.__onMobileLogout = () => setShowLogoutModal(true); return () => { delete window.__onMobileLogout; }; }, []);
 
   const navItems = useMemo(() =>
@@ -1822,7 +1825,6 @@ export default function App() {
   const offlineTimeRef  = useRef(null);
   const offlineTimerRef = useRef(null);
 
-  // Restore offline state from sessionStorage on mount
   useEffect(() => {
     const storedOfflineTime = sessionStorage.getItem("fews1_offline_time");
     const storedWasOffline  = sessionStorage.getItem("fews1_was_offline");
@@ -1833,8 +1835,6 @@ export default function App() {
     }
     if (storedWasOffline === "true") {
       wasConnectedRef.current = false;
-
-      // If offline log hasn't fired yet, restart the timer for remaining time
       if (storedLogged !== "true" && storedOfflineTime) {
         const elapsed   = Date.now() - parseInt(storedOfflineTime, 10);
         const remaining = Math.max(0, 120000 - elapsed);
@@ -1855,13 +1855,10 @@ export default function App() {
     const offlineTime = offlineTimeRef.current || parseInt(sessionStorage.getItem("fews1_offline_time") || "0", 10);
 
     if (wasOffline && offlineTime) {
-      // Cancel pending offline timer if it hasn't fired yet
       if (offlineTimerRef.current) {
         clearTimeout(offlineTimerRef.current);
         offlineTimerRef.current = null;
-        // Timer hadn't fired — brief disconnect, log nothing
       } else {
-        // Offline log already fired — log back online with duration
         const diffMs   = Date.now() - offlineTime;
         const diffMins = Math.floor(diffMs / 60000);
         if (diffMins >= 2) {
@@ -1887,7 +1884,6 @@ export default function App() {
     setFews1Connected(false);
 
     const wasOnline = wasConnectedRef.current === true;
-    // Start timer only if: was online AND no timer running AND no existing offline session
     if (wasOnline && !offlineTimerRef.current && !sessionStorage.getItem("fews1_was_offline")) {
       const offlineTime = Date.now();
       offlineTimeRef.current = offlineTime;
@@ -1904,67 +1900,62 @@ export default function App() {
     wasConnectedRef.current = false;
   }, [addLog]);
 
-// ─── Poll latest sensor data every 5s ────────────────────────────────────
-useEffect(() => {
-  const failCount = { current: 0 };  // ← ADD THIS
-  let timeoutId = null;               // ← ADD THIS
+  // ─── Poll latest sensor data — with backoff ───────────────────────────────
+  useEffect(() => {
+    const failCount = { current: 0 };
+    let timeoutId = null;
 
-  const poll = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/data/latest`);
-      if (!res.ok) throw new Error("non-200");
-      const data = await res.json();
-      if (data.fews_1) {
-        const rawTs  = data.fews_1.timestamp;
-        const utcStr = typeof rawTs === "string"
-          ? rawTs.replace(" ", "T").replace(/Z?$/, "Z")
-          : null;
-        const lastSeen = utcStr ? new Date(utcStr) : null;
-        const isRecent = lastSeen && (Date.now() - lastSeen.getTime()) < 600000;
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/data/latest`);
+        if (!res.ok) throw new Error("non-200");
+        const data = await res.json();
+        if (data.fews_1) {
+          const rawTs  = data.fews_1.timestamp;
+          const utcStr = typeof rawTs === "string"
+            ? rawTs.replace(" ", "T").replace(/Z?$/, "Z")
+            : null;
+          const lastSeen = utcStr ? new Date(utcStr) : null;
+          const isRecent = lastSeen && (Date.now() - lastSeen.getTime()) < 600000;
 
-        if (isRecent) {
-          setFews1Live(data.fews_1);
-          handleOnline();
-          failCount.current = 0;      // ← ADD THIS
+          if (isRecent) {
+            setFews1Live(data.fews_1);
+            handleOnline();
+            failCount.current = 0;
+          } else {
+            handleOffline();
+            failCount.current += 1;
+          }
         } else {
           handleOffline();
-          failCount.current += 1;     // ← ADD THIS
+          failCount.current += 1;
         }
-      } else {
+      } catch {
         handleOffline();
-        failCount.current += 1;       // ← ADD THIS
+        failCount.current += 1;
+      } finally {
+        const delay = failCount.current === 0 ? 5000
+                    : failCount.current === 1 ? 10000
+                    : failCount.current === 2 ? 20000
+                    : 30000;
+        timeoutId = setTimeout(poll, delay);
       }
-    } catch {
-      handleOffline();
-      failCount.current += 1;         // ← ADD THIS
-    } finally {
-      // ── ADD THIS WHOLE BLOCK ──────────────────────────────────────────
-      const delay = failCount.current === 0 ? 5000
-                  : failCount.current === 1 ? 10000
-                  : failCount.current === 2 ? 20000
-                  : 30000;
-      timeoutId = setTimeout(poll, delay);
-      // ─────────────────────────────────────────────────────────────────
-    }
-  };
+    };
 
-  poll();
-  // ─── REMOVE the setInterval line and update the cleanup ──────────────
-  return () => {
-    if (timeoutId) clearTimeout(timeoutId);                          // ← CHANGED
-    if (offlineTimerRef.current) clearTimeout(offlineTimerRef.current);
-  };
-  // ─────────────────────────────────────────────────────────────────────
-}, [handleOnline, handleOffline]);
+    poll();
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (offlineTimerRef.current) clearTimeout(offlineTimerRef.current);
+    };
+  }, [handleOnline, handleOffline]);
 
-  // ─── Fetch real water level history every 10s ─────────────────────────────
+  // ─── Fetch water level history — with backoff ─────────────────────────────
   useEffect(() => {
     const buildChart = (rows) => {
       const now      = Date.now();
       const windowMs = 60 * 60 * 1000;
       const winStart = now - windowMs;
 
-      // Filter to 50-min window
       const recent = (rows || []).filter((r) => {
         const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
         return new Date(utcStr).getTime() >= winStart;
@@ -1993,22 +1984,33 @@ useEffect(() => {
       });
     };
 
-    const fetchHistory = async () => {
+    // CHANGED: replaced setInterval with self-scheduling setTimeout with backoff
+    const historyFailCount = { current: 0 };
+    let historyTimeoutId = null;
+
+    const scheduledFetch = async () => {
       try {
         const res = await fetch(`${API_BASE}/data/history`);
-        if (!res.ok) return;
+        if (!res.ok) throw new Error("non-200");
         const rows = await res.json();
-        if (!Array.isArray(rows)) return;
+        if (!Array.isArray(rows)) throw new Error("bad data");
         buildChart(rows);
+        historyFailCount.current = 0;
       } catch {
-        // silently ignore
+        historyFailCount.current += 1;
+      } finally {
+        const delay = historyFailCount.current === 0 ? 10000
+                    : historyFailCount.current === 1 ? 20000
+                    : historyFailCount.current === 2 ? 40000
+                    : 60000;
+        historyTimeoutId = setTimeout(scheduledFetch, delay);
       }
     };
 
-    fetchHistory();
-    // Rebuild chart every 10s (also refreshes the time window)
-    const interval = setInterval(fetchHistory, 10000);
-    return () => clearInterval(interval);
+    scheduledFetch();
+    return () => {
+      if (historyTimeoutId) clearTimeout(historyTimeoutId);
+    };
   }, []);
 
   const allFews = useMemo(() => {
@@ -2028,18 +2030,18 @@ useEffect(() => {
 
   if (!isLoggedIn) return <Login onLogin={handleLogin} />;
 
-  // ─── WATER LEVEL CHART (fixed 0-500cm with threshold zones) ──────────────
+  // ─── WATER LEVEL CHART ────────────────────────────────────────────────────
   const chartPoints = (historyData?.values?.length)
     ? historyData.positions.map((ms, i) => ({ x: ms, y: historyData.values[i] }))
     : [];
 
-const CHART_PADDING = 2 * 60 * 1000;
-const chartWinStart = historyData?.positions?.length
-  ? Math.floor((historyData.positions[0] - CHART_PADDING) / 300000) * 300000
-  : Math.floor((Date.now() - 60 * 60 * 1000) / 300000) * 300000;
-const chartWinEnd = historyData?.positions?.length
-  ? Math.ceil((historyData.positions[historyData.positions.length - 1] + CHART_PADDING) / 300000) * 300000
-  : Math.ceil(Date.now() / 300000) * 300000;
+  const CHART_PADDING = 2 * 60 * 1000;
+  const chartWinStart = historyData?.positions?.length
+    ? Math.floor((historyData.positions[0] - CHART_PADDING) / 300000) * 300000
+    : Math.floor((Date.now() - 60 * 60 * 1000) / 300000) * 300000;
+  const chartWinEnd = historyData?.positions?.length
+    ? Math.ceil((historyData.positions[historyData.positions.length - 1] + CHART_PADDING) / 300000) * 300000
+    : Math.ceil(Date.now() / 300000) * 300000;
 
   const waterChartData = {
     datasets: [{
@@ -2103,52 +2105,17 @@ const chartWinEnd = historyData?.positions?.length
       },
       annotation: {
         annotations: {
-          zoneSafe: {
-            type: "box",
-            yMin: 0,
-            yMax: 200,
-            backgroundColor: "rgba(34,197,94,0.04)",
-            borderWidth: 0,
-          },
-          zoneWarning: {
-            type: "box",
-            yMin: 200,
-            yMax: 300,
-            backgroundColor: "rgba(245,158,11,0.05)",
-            borderWidth: 0,
-          },
-          zoneCritical: {
-            type: "box",
-            yMin: 300,
-            yMax: 500,
-            backgroundColor: "rgba(239,68,68,0.05)",
-            borderWidth: 0,
-          },
-          lineWarning: {
-            type: "line",
-            yMin: 200,
-            yMax: 200,
-            borderColor: "rgba(245,158,11,0.55)",
-            borderWidth: 1,
-            borderDash: [4, 4],
-            label: { display: false },
-          },
-          lineCritical: {
-            type: "line",
-            yMin: 300,
-            yMax: 300,
-            borderColor: "rgba(239,68,68,0.55)",
-            borderWidth: 1,
-            borderDash: [4, 4],
-            label: { display: false },
-          },
+          zoneSafe:    { type: "box", yMin: 0,   yMax: 200, backgroundColor: "rgba(34,197,94,0.04)",  borderWidth: 0 },
+          zoneWarning: { type: "box", yMin: 200, yMax: 300, backgroundColor: "rgba(245,158,11,0.05)", borderWidth: 0 },
+          zoneCritical:{ type: "box", yMin: 300, yMax: 500, backgroundColor: "rgba(239,68,68,0.05)",  borderWidth: 0 },
+          lineWarning: { type: "line", yMin: 200, yMax: 200, borderColor: "rgba(245,158,11,0.55)", borderWidth: 1, borderDash: [4, 4], label: { display: false } },
+          lineCritical:{ type: "line", yMin: 300, yMax: 300, borderColor: "rgba(239,68,68,0.55)",  borderWidth: 1, borderDash: [4, 4], label: { display: false } },
         },
       },
     },
     scales: {
       y: {
-        min: 0,
-        max: 500,
+        min: 0, max: 500,
         grid: { color: "rgba(255,255,255,0.05)" },
         ticks: {
           color: (ctx) => {
@@ -2172,7 +2139,7 @@ const chartWinEnd = historyData?.positions?.length
           maxRotation: 0,
           minRotation: 0,
           font: { size: 9 },
-          stepSize: 5 * 60 * 1000, // 5 minutes in ms
+          stepSize: 5 * 60 * 1000,
           callback: (val) => new Intl.DateTimeFormat("en-PH", {
             timeZone: "Asia/Manila",
             hour: "2-digit",
