@@ -34,6 +34,18 @@ L.Icon.Default.mergeOptions({
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+// Central fetch wrapper — auto-logs out on 401 (expired JWT)
+let _onUnauthorized = null;
+function setUnauthorizedHandler(fn) { _onUnauthorized = fn; }
+async function authFetch(url, options = {}) {
+  const res = await fetch(url, options);
+  if (res.status === 401 && _onUnauthorized) {
+    _onUnauthorized();
+    throw new Error("Unauthorized");
+  }
+  return res;
+}
+
 // ─── RBAC HELPERS ────────────────────────────────────────────────────────────
 const ROLE_ACCESS = {
   Admin:    ["Dashboard", "UnitControl", "Logs", "Settings"],
@@ -81,8 +93,6 @@ function backendStatusToKey(status) {
     default:         return "safe";
   }
 }
-
-const FEWS_COLORS = ["#22c55e"];
 
 const ALL_NAV_ITEMS = [
   { key: "Dashboard",   icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>, label: "Dashboard"    },
@@ -447,7 +457,7 @@ function ChangeEmailModal({ onClose, token, user, onEmailChanged, addLog }) {
     if (email === user.email) { setError("New email must be different from current."); return; }
     setSaving(true); setError("");
     try {
-      const res  = await fetch(`${API_BASE}/users/me/email`, {
+      const res  = await authFetch(`${API_BASE}/users/me/email`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ email }),
@@ -505,7 +515,7 @@ function ChangePasswordModal({ onClose, token, user, addLog }) {
     if (pw.next === pw.current)  { setError("New password must be different from current."); return; }
     setSaving(true); setError("");
     try {
-      const res  = await fetch(`${API_BASE}/users/me/password`, {
+      const res  = await authFetch(`${API_BASE}/users/me/password`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ current_password: pw.current, new_password: pw.next }),
@@ -568,7 +578,7 @@ function ChangePhoneModal({ onClose, token, user, onPhoneChanged, addLog }) {
     if (cleaned !== cleanedC) { setError("Phone numbers do not match."); return; }
     setSaving(true); setError("");
     try {
-      const res  = await fetch(`${API_BASE}/users/me/phone`, {
+      const res  = await authFetch(`${API_BASE}/users/me/phone`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ phone: cleaned }),
@@ -632,7 +642,7 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
     if (!/^\+?\d{10,15}$/.test(form.phone.trim().replace(/\s+/g,""))) { setError("Enter a valid phone number (e.g. +639XXXXXXXXX)."); return; }
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/users`, {
+      const res = await authFetch(`${API_BASE}/users`, {
         method:  "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body:    JSON.stringify({ name: form.name, email: form.email, password: form.password, role: form.role, department: form.department, phone: form.phone.trim() }),
@@ -749,7 +759,7 @@ function ProfileDropdown({ user, token, onSave, onClose, addLog }) {
     setSaving(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/users/me`, {
+      const res = await authFetch(`${API_BASE}/users/me`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ name, photo }),
@@ -839,7 +849,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
   const canControl = can(userRole, "unitControl");
 
   useEffect(() => {
-    fetch(`${API_BASE}/units`, { headers: { Authorization: `Bearer ${token}` } })
+    authFetch(`${API_BASE}/units`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(rows => {
         if (!Array.isArray(rows)) return;
@@ -902,7 +912,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
     const prev = prevThresholds[id];
     setThrSaving(p => ({ ...p, [id]: true }));
     try {
-      await fetch(`${API_BASE}/units/${getDeviceId(id)}`, {
+      await authFetch(`${API_BASE}/units/${getDeviceId(id)}`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ threshold_warning: thr.warning, threshold_danger: thr.danger }),
@@ -925,7 +935,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
     const snapshot = editing[id];
     setInfoSaving(prev => ({ ...prev, [id]: true }));
     try {
-      await fetch(`${API_BASE}/units/${getDeviceId(id)}`, {
+      await authFetch(`${API_BASE}/units/${getDeviceId(id)}`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({
@@ -1272,7 +1282,7 @@ function LogsPage({ token, userRole }) {
 
   const fetchLogs = useCallback(() => {
     if (!token) return;
-    fetch(`${API_BASE}/logs`, { headers: { Authorization: `Bearer ${token}` } })
+    authFetch(`${API_BASE}/logs`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) {
@@ -1288,9 +1298,34 @@ function LogsPage({ token, userRole }) {
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
   useEffect(() => {
-    const interval = setInterval(fetchLogs, 10000);
-    return () => clearInterval(interval);
-  }, [fetchLogs]);
+    let logsTimeoutId = null;
+    let logsFailCount = 0;
+
+    const scheduledFetch = () => {
+      if (!token) return;
+      authFetch(`${API_BASE}/logs`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            const parsed = data.map(parseLog).filter(l => allowedTypes.includes(l.type));
+            setLogs(parsed);
+            setFetchError(false);
+            logsFailCount = 0;
+          }
+        })
+        .catch(() => { logsFailCount += 1; })
+        .finally(() => {
+          const delay = logsFailCount === 0 ? 10000
+                      : logsFailCount === 1 ? 20000
+                      : logsFailCount === 2 ? 40000
+                      : 60000;
+          logsTimeoutId = setTimeout(scheduledFetch, delay);
+        });
+    };
+
+    logsTimeoutId = setTimeout(scheduledFetch, 10000);
+    return () => { if (logsTimeoutId) clearTimeout(logsTimeoutId); };
+  }, [fetchLogs, token]);
 
   const allStations = useMemo(() => {
     const seen = new Set();
@@ -1478,7 +1513,6 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
   const [loadingUsers, setLoadingUsers]     = useState(false);
   const [loadUsersError, setLoadUsersError] = useState(false);
   const [drafts, setDrafts]                 = useState({});
-  const [savingIds, setSavingIds]           = useState({});
   const [confirmSave, setConfirmSave]       = useState(null);
   const [confirmRemove, setConfirmRemove]   = useState(null);
 
@@ -1493,7 +1527,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
   useEffect(() => {
     setLoadingUsers(true);
     setLoadUsersError(false);
-    fetch(`${API_BASE}/users`, { headers: { Authorization: `Bearer ${token}` } })
+    authFetch(`${API_BASE}/users`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(data => { setUsers(Array.isArray(data) ? data : []); })
       .catch(() => setLoadUsersError(true))
@@ -1512,7 +1546,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
     const u = confirmSave;
     const d = getDraft(u);
     try {
-      const res = await fetch(`${API_BASE}/users/${u.id}`, {
+      const res = await authFetch(`${API_BASE}/users/${u.id}`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify(d),
@@ -1531,7 +1565,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
   const doRemove = async () => {
     const u = confirmRemove;
     try {
-      await fetch(`${API_BASE}/users/${u.id}`, {
+      await authFetch(`${API_BASE}/users/${u.id}`, {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` },
       });
       addLog({
@@ -1548,7 +1582,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
   const handleSmsToggle = async (userId, newVal) => {
     setSmsSaving(p => ({ ...p, [userId]: true }));
     try {
-      const res = await fetch(`${API_BASE}/users/${userId}/sms`, {
+      const res = await authFetch(`${API_BASE}/users/${userId}/sms`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ sms_enabled: newVal }),
@@ -1753,7 +1787,15 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn]                   = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    try {
+      const tok    = sessionStorage.getItem("token");
+      const stored = sessionStorage.getItem("user");
+      if (!tok || !stored) return false;
+      const parsed = JSON.parse(stored);
+      return !!(parsed && typeof parsed.name === "string" && parsed.name && parsed.role);
+    } catch { return false; }
+  });
   const [showLogoutModal, setShowLogoutModal]         = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [sidebarOpen, setSidebarOpen]                 = useState(false);
@@ -1786,8 +1828,7 @@ export default function App() {
   const [sirens, setSirens] = useState({ 1: false });
 
   // ─── Water level history state ───────────────────────────────────────────
-  const [historyData,   setHistoryData]   = useState({ positions: [], values: [], exactLabels: [] });
-  const [historyLabels, setHistoryLabels] = useState([]);
+  const [historyData, setHistoryData] = useState({ positions: [], values: [], exactLabels: [] });
 
   const addLog = useCallback(async ({ station, type, message }) => {
     const tok = sessionStorage.getItem("token") || token;
@@ -1801,27 +1842,7 @@ export default function App() {
     } catch {
       // Silently ignore
     }
-  }, [token]);
-
-  const toggleSiren = (id) => {
-    if (!can(user.role, "sirenControl")) return;
-    const turningOn = !sirens[id];
-    setSirens(prev => ({ ...prev, [id]: !prev[id] }));
-    const f = allFews.find(x => x.id === id);
-    if (f) {
-      addLog({
-        station: f.name,
-        type: turningOn ? "warning" : "system",
-        message: turningOn
-          ? `Siren for ${f.name} (${f.location}) has been manually activated by ${user.name}`
-          : `Siren for ${f.name} (${f.location}) has been silenced by ${user.name}`,
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (token && user.name) setIsLoggedIn(true);
-  }, []);
+  }, [token, user.name]);
 
   const handleLogin = (role) => {
     const stored = sessionStorage.getItem("user");
@@ -1831,18 +1852,40 @@ export default function App() {
     setActiveNav("Dashboard");
   };
 
-  const handleLogout = () => {
-    addLog({
-      station: "System", type: "system",
-      message: `${user.name} (${user.role}, ${user.department}) has logged out of the system`,
-    });
+  const userRef = useRef(user);
+  useEffect(() => { userRef.current = user; }, [user]);
+
+  const handleLogout = useCallback(() => {
+    const currentUser = userRef.current;
+    // Log the logout — use plain fetch to avoid circular dep with addLog
+    const tok = sessionStorage.getItem("token");
+    if (tok && currentUser.name) {
+      fetch(`${API_BASE}/logs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({
+          station: "System", type: "system",
+          message: `${currentUser.name} (${currentUser.role}, ${currentUser.department}) has logged out of the system`,
+          user_name: currentUser.name,
+        }),
+      }).catch(() => {});
+    }
     sessionStorage.removeItem("token");
     sessionStorage.removeItem("user");
+    sessionStorage.removeItem("fews1_offline_time");
+    sessionStorage.removeItem("fews1_was_offline");
+    sessionStorage.removeItem("fews1_initial_logged");
     setIsLoggedIn(false);
     setUser({ name: "", role: "Operator", department: "", initials: "?", dob: "", photo: null, email: "" });
     setToken("");
     setShowLogoutModal(false);
-  };
+  }, []);
+
+  // Register the 401 unauthorized handler so any expired JWT auto-logs out
+  useEffect(() => {
+    setUnauthorizedHandler(handleLogout);
+    return () => setUnauthorizedHandler(null);
+  }, [handleLogout]);
 
   const mobileLogoutRef = useRef(null);
   mobileLogoutRef.current = () => setShowLogoutModal(true);
@@ -1859,7 +1902,6 @@ export default function App() {
   // ─── Track FEWS 1 online/offline transitions ─────────────────────────────
   const wasConnectedRef = useRef(null);
   const offlineTimeRef  = useRef(null);
-  const offlineTimerRef = useRef(null);
 
   // Restore offline state from sessionStorage on mount
   useEffect(() => {
@@ -1918,12 +1960,6 @@ export default function App() {
         });
         sessionStorage.setItem("fews1_initial_logged", "true");
       }
-    }
-
-    // Cancel any pending offline timer
-    if (offlineTimerRef.current) {
-      clearTimeout(offlineTimerRef.current);
-      offlineTimerRef.current = null;
     }
 
     wasConnectedRef.current = true;
@@ -2076,9 +2112,24 @@ export default function App() {
     return [fews1];
   }, [fews1Live]);
 
-  if (!isLoggedIn) return <Login onLogin={handleLogin} />;
+  // Fix 5 — toggleSiren moved here so allFews is in scope
+  const toggleSiren = (id) => {
+    if (!can(user.role, "sirenControl")) return;
+    const turningOn = !sirens[id];
+    setSirens(prev => ({ ...prev, [id]: !prev[id] }));
+    const f = allFews.find(x => x.id === id);
+    if (f) {
+      addLog({
+        station: f.name,
+        type: turningOn ? "warning" : "system",
+        message: turningOn
+          ? `Siren for ${f.name} (${f.location}) has been manually activated by ${user.name}`
+          : `Siren for ${f.name} (${f.location}) has been silenced by ${user.name}`,
+      });
+    }
+  };
 
-  // ─── WATER LEVEL CHART ────────────────────────────────────────────────────
+  // Fix 10 — chart constants moved before early return to avoid post-return definitions
   const chartPoints = (historyData?.values?.length)
     ? historyData.positions.map((ms, i) => ({ x: ms, y: historyData.values[i] }))
     : [];
@@ -2199,7 +2250,6 @@ export default function App() {
     },
   };
 
-  // ─── BATTERY CHART ────────────────────────────────────────────────────────
   const batteryData = {
     labels: allFews.map(f => f.name),
     datasets: [{
@@ -2247,6 +2297,8 @@ export default function App() {
   const lastUpdatedStr = lastUpdated
     ? lastUpdated.toLocaleTimeString("en-PH", { timeZone: "Asia/Manila", hour:"2-digit", minute:"2-digit", second:"2-digit" })
     : null;
+
+  if (!isLoggedIn) return <Login onLogin={handleLogin} />;
 
   return (
     <div className="app-shell">
