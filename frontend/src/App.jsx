@@ -450,6 +450,9 @@ function ChangeEmailModal({ onClose, token, user, onEmailChanged, addLog }) {
   const [error, setError]     = useState("");
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
+  const closeTimerRef         = useRef(null);
+
+  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
 
   const handle = async () => {
     if (!email.trim())        { setError("New email is required."); return; }
@@ -468,8 +471,12 @@ function ChangeEmailModal({ onClose, token, user, onEmailChanged, addLog }) {
         message: `${user.name} changed their email address` });
       onEmailChanged(email);
       setSaved(true);
-      setTimeout(() => onClose(), 1200);
-    } catch { setError("Network error. Try again."); setSaving(false); }
+      closeTimerRef.current = setTimeout(() => onClose(), 1200);
+    } catch (err) {
+      if (err?.message === "Unauthorized") return;
+      setError("Network error. Try again.");
+      setSaving(false);
+    }
   };
 
   return (
@@ -502,10 +509,13 @@ function ChangeEmailModal({ onClose, token, user, onEmailChanged, addLog }) {
 }
 
 function ChangePasswordModal({ onClose, token, user, addLog }) {
-  const [pw, setPw]       = useState({ current: "", next: "", confirm: "" });
-  const [error, setError] = useState("");
+  const [pw, setPw]         = useState({ current: "", next: "", confirm: "" });
+  const [error, setError]   = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
+  const closeTimerRef       = useRef(null);
+
+  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
 
   const handle = async () => {
     if (!pw.current)             { setError("Current password is required."); return; }
@@ -525,8 +535,12 @@ function ChangePasswordModal({ onClose, token, user, addLog }) {
       addLog({ station: "System", type: "system",
         message: `${user.name} changed their password` });
       setSaved(true);
-      setTimeout(() => onClose(), 1200);
-    } catch { setError("Network error. Try again."); setSaving(false); }
+      closeTimerRef.current = setTimeout(() => onClose(), 1200);
+    } catch (err) {
+      if (err?.message === "Unauthorized") return;
+      setError("Network error. Try again.");
+      setSaving(false);
+    }
   };
 
   return (
@@ -568,6 +582,9 @@ function ChangePhoneModal({ onClose, token, user, onPhoneChanged, addLog }) {
   const [error, setError]           = useState("");
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
+  const closeTimerRef               = useRef(null);
+
+  useEffect(() => () => { if (closeTimerRef.current) clearTimeout(closeTimerRef.current); }, []);
 
   const handle = async () => {
     const cleaned = phone.trim().replace(/\s+/g, "");
@@ -588,8 +605,12 @@ function ChangePhoneModal({ onClose, token, user, onPhoneChanged, addLog }) {
       addLog({ station: "System", type: "system", message: `${user.name} updated their phone number` });
       onPhoneChanged(cleaned);
       setSaved(true);
-      setTimeout(() => onClose(), 1200);
-    } catch { setError("Network error. Try again."); setSaving(false); }
+      closeTimerRef.current = setTimeout(() => onClose(), 1200);
+    } catch (err) {
+      if (err?.message === "Unauthorized") return;
+      setError("Network error. Try again.");
+      setSaving(false);
+    }
   };
 
   return (
@@ -845,6 +866,8 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
   const [pendingToggle, setPendingToggle] = useState(null);
   const [powerSaving, setPowerSaving]     = useState({});
   const [loadError, setLoadError]         = useState(false);
+  const [thrError, setThrError]           = useState({});
+  const [infoError, setInfoError]         = useState({});
 
   const canControl = can(userRole, "unitControl");
 
@@ -911,17 +934,22 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
     const thr  = thresholds[id];
     const prev = prevThresholds[id];
     setThrSaving(p => ({ ...p, [id]: true }));
+    setThrError(p => ({ ...p, [id]: "" }));
     try {
-      await authFetch(`${API_BASE}/units/${getDeviceId(id)}`, {
+      const res = await authFetch(`${API_BASE}/units/${getDeviceId(id)}`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ threshold_warning: thr.warning, threshold_danger: thr.danger }),
       });
+      if (!res.ok) { setThrError(p => ({ ...p, [id]: "Failed to save thresholds." })); return; }
       if (thr.warning !== prev.warning) addLog({ station: f.name, type: "info", message: `${f.name} (${f.location}) warning threshold updated from ${prev.warning} cm to ${thr.warning} cm by ${userName}` });
       if (thr.danger  !== prev.danger)  addLog({ station: f.name, type: "info", message: `${f.name} (${f.location}) danger threshold updated from ${prev.danger} cm to ${thr.danger} cm by ${userName}` });
       setPrevThr(p => ({ ...p, [id]: { ...thr } }));
-    } catch {}
-    setThrSaving(p => ({ ...p, [id]: false }));
+    } catch (err) {
+      if (err?.message !== "Unauthorized") setThrError(p => ({ ...p, [id]: "Network error. Try again." }));
+    } finally {
+      setThrSaving(p => ({ ...p, [id]: false }));
+    }
   };
 
   const startEdit = (id) => {
@@ -934,8 +962,9 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
     const f        = fewsData.find(x => x.id === id);
     const snapshot = editing[id];
     setInfoSaving(prev => ({ ...prev, [id]: true }));
+    setInfoError(prev => ({ ...prev, [id]: "" }));
     try {
-      await authFetch(`${API_BASE}/units/${getDeviceId(id)}`, {
+      const res = await authFetch(`${API_BASE}/units/${getDeviceId(id)}`, {
         method:  "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body:    JSON.stringify({
@@ -944,11 +973,15 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
           description:    snapshot.description,
         }),
       });
+      if (!res.ok) { setInfoError(prev => ({ ...prev, [id]: "Failed to save. Try again." })); return; }
       setFewsData(prev => prev.map(x => x.id === id ? { ...x, ...snapshot } : x));
       addLog({ station: f.name, type: "info", message: `${f.name} (${f.location}) station information updated by ${userName}` });
-    } catch {}
-    setInfoSaving(prev => ({ ...prev, [id]: false }));
-    setEditing(prev => { const n = {...prev}; delete n[id]; return n; });
+      setEditing(prev => { const n = {...prev}; delete n[id]; return n; });
+    } catch (err) {
+      if (err?.message !== "Unauthorized") setInfoError(prev => ({ ...prev, [id]: "Network error. Try again." }));
+    } finally {
+      setInfoSaving(prev => ({ ...prev, [id]: false }));
+    }
   };
 
   const cancelEdit = (id) => setEditing(prev => { const n = {...prev}; delete n[id]; return n; });
@@ -1067,6 +1100,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
                   <textarea className="uc-desc-textarea" rows={3} value={ed.description}
                     onChange={e => setEditing(prev => ({ ...prev, [f.id]: { ...prev[f.id], description: e.target.value } }))} />
                 ) : <div className="uc-description">{f.description}</div>}
+                {infoError[f.id] && <div className="settings-error" style={{ fontSize: 11, marginTop: 4 }}>{infoError[f.id]}</div>}
               </div>
 
               {canControl && (
@@ -1085,6 +1119,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
                     </div>
                     <button className="uc-thr-save" onClick={() => saveThr(f.id)}>{thrSaving[f.id] ? <span className="btn-spinner" /> : "Save"}</button>
                   </div>
+                  {thrError[f.id] && <div className="settings-error" style={{ fontSize: 11, marginTop: 4 }}>{thrError[f.id]}</div>}
                 </div>
               )}
             </div>
@@ -1325,7 +1360,7 @@ function LogsPage({ token, userRole }) {
 
     logsTimeoutId = setTimeout(scheduledFetch, 10000);
     return () => { if (logsTimeoutId) clearTimeout(logsTimeoutId); };
-  }, [fetchLogs, token]);
+  }, [fetchLogs, token, allowedTypes]);
 
   const allStations = useMemo(() => {
     const seen = new Set();
@@ -1557,23 +1592,33 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
         setUsers(prev => prev.map(x => x.id === u.id ? { ...x, ...d } : x));
         setDrafts(prev => { const n={...prev}; delete n[u.id]; return n; });
         if (u.id === user.id) onUserUpdate({ ...user, ...d });
+      } else {
+        setLoadUsersError(true);
       }
-    } catch {}
+    } catch (err) {
+      if (err?.message !== "Unauthorized") setLoadUsersError(true);
+    }
     setConfirmSave(null);
   };
 
   const doRemove = async () => {
     const u = confirmRemove;
     try {
-      await authFetch(`${API_BASE}/users/${u.id}`, {
+      const res = await authFetch(`${API_BASE}/users/${u.id}`, {
         method: "DELETE", headers: { Authorization: `Bearer ${token}` },
       });
-      addLog({
-        station: "System", type: "system",
-        message: `User ${u.name} (${u.role}, ${u.department}) has been removed from the system`,
-      });
-      setUsers(prev => prev.filter(x => x.id !== u.id));
-    } catch {}
+      if (res.ok) {
+        addLog({
+          station: "System", type: "system",
+          message: `User ${u.name} (${u.role}, ${u.department}) has been removed from the system`,
+        });
+        setUsers(prev => prev.filter(x => x.id !== u.id));
+      } else {
+        setLoadUsersError(true);
+      }
+    } catch (err) {
+      if (err?.message !== "Unauthorized") setLoadUsersError(true);
+    }
     setConfirmRemove(null);
   };
 
@@ -1845,8 +1890,15 @@ export default function App() {
   }, [token, user.name]);
 
   const handleLogin = (role) => {
-    const stored = sessionStorage.getItem("user");
-    if (stored) setUser(JSON.parse(stored));
+    try {
+      const stored = sessionStorage.getItem("user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed.name === "string" && parsed.name && parsed.role) {
+          setUser(parsed);
+        }
+      }
+    } catch {}
     setToken(sessionStorage.getItem("token") || "");
     setIsLoggedIn(true);
     setActiveNav("Dashboard");
