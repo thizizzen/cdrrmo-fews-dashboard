@@ -3,6 +3,7 @@ import psycopg2.extras
 import psycopg2.pool
 import os
 import time
+import threading
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
@@ -10,61 +11,74 @@ if not DATABASE_URL:
 
 _pool = None
 _pool_fail_count = 0
+_pool_lock = threading.Lock()
+_resetting = False
 MAX_POOL_FAILS = 3
 
 def get_pool():
-    global _pool, _pool_fail_count
+    global _pool
     if _pool is not None:
         return _pool
-    try:
-        _pool = psycopg2.pool.ThreadedConnectionPool(
-            minconn=1,
-            maxconn=5,
-            dsn=DATABASE_URL + "?connect_timeout=30",
-            cursor_factory=psycopg2.extras.RealDictCursor
-        )
-        _pool_fail_count = 0
-        print("[DB] Connection pool created successfully")
-        return _pool
-    except Exception as e:
-        _pool = None
-        print(f"[DB] Failed to create connection pool: {e}")
-        raise
+    _pool = psycopg2.pool.ThreadedConnectionPool(
+        minconn=1,
+        maxconn=5,
+        dsn=DATABASE_URL + "?connect_timeout=30",
+        cursor_factory=psycopg2.extras.RealDictCursor
+    )
+    print("[DB] Connection pool created successfully")
+    return _pool
 
 def reset_pool():
-    global _pool, _pool_fail_count
+    global _pool, _pool_fail_count, _resetting
+    with _pool_lock:
+        if _resetting:
+            return
+        _resetting = True
+        _pool_fail_count = 0
+
     print("[DB] Resetting connection pool...")
     try:
-        if _pool is not None:
-            _pool.closeall()
-    except Exception:
-        pass
-    _pool = None
-    _pool_fail_count = 0
-    time.sleep(2)
-    return get_pool()
+        with _pool_lock:
+            try:
+                if _pool is not None:
+                    _pool.closeall()
+            except Exception:
+                pass
+            _pool = None
+
+        time.sleep(2)
+
+        with _pool_lock:
+            get_pool()
+    except Exception as e:
+        print(f"[DB] Pool reset failed: {e}")
+    finally:
+        with _pool_lock:
+            _resetting = False
 
 def get_db():
     global _pool_fail_count
     try:
-        pool = get_pool()
-        conn = pool.getconn()
+        with _pool_lock:
+            pool = get_pool()
+            conn = pool.getconn()
         conn.autocommit = False
-        _pool_fail_count = 0
+        with _pool_lock:
+            _pool_fail_count = 0
         return conn
     except psycopg2.pool.PoolError as e:
-        # Pool exhausted — all 5 connections in use
         print(f"[DB] Pool exhausted: {e}")
         raise psycopg2.OperationalError("Database pool exhausted, try again shortly")
     except psycopg2.OperationalError as e:
-        _pool_fail_count += 1
-        print(f"[DB] Connection failed ({_pool_fail_count}/{MAX_POOL_FAILS}): {e}")
-        if _pool_fail_count >= MAX_POOL_FAILS:
+        with _pool_lock:
+            _pool_fail_count += 1
+            count = _pool_fail_count
+            should_reset = count >= MAX_POOL_FAILS and not _resetting
+        print(f"[DB] Connection failed ({count}/{MAX_POOL_FAILS}): {e}")
+        if should_reset:
             print("[DB] Too many failures — forcing pool reset")
-            try:
-                reset_pool()
-            except Exception as reset_err:
-                print(f"[DB] Pool reset also failed: {reset_err}")
+            t = threading.Thread(target=reset_pool, daemon=True)
+            t.start()
         raise
     except Exception as e:
         print(f"[DB] Unexpected error getting connection: {e}")
@@ -74,17 +88,16 @@ def release_db(conn):
     if conn is None:
         return
     try:
-        # Roll back any uncommitted transaction before returning to pool
         if not conn.closed:
             try:
                 conn.rollback()
             except Exception:
                 pass
-        pool = get_pool()
-        pool.putconn(conn)
+        with _pool_lock:
+            pool = get_pool()
+            pool.putconn(conn)
     except Exception as e:
         print(f"[DB] Failed to release connection: {e}")
-        # If we can't return it to the pool, close it directly
         try:
             conn.close()
         except Exception:
@@ -92,28 +105,28 @@ def release_db(conn):
 
 def close_pool():
     global _pool
-    if _pool is not None:
-        try:
-            _pool.closeall()
-            print("[DB] Connection pool closed")
-        except Exception as e:
-            print(f"[DB] Error closing pool: {e}")
-        finally:
-            _pool = None
+    with _pool_lock:
+        if _pool is not None:
+            try:
+                _pool.closeall()
+                print("[DB] Connection pool closed")
+            except Exception as e:
+                print(f"[DB] Error closing pool: {e}")
+            finally:
+                _pool = None
 
 def init_db():
     conn = None
-    retries = 3
-    for attempt in range(retries):
+    for attempt in range(3):
         try:
             conn = get_db()
             break
         except psycopg2.OperationalError as e:
-            print(f"[DB] init_db connection attempt {attempt + 1}/{retries} failed: {e}")
-            if attempt < retries - 1:
+            print(f"[DB] init_db attempt {attempt + 1}/3 failed: {e}")
+            if attempt < 2:
                 time.sleep(5)
             else:
-                print("[DB] init_db giving up after all retries — DB unavailable at startup")
+                print("[DB] init_db giving up — DB unavailable at startup")
                 return
 
     cur = conn.cursor()
@@ -130,11 +143,7 @@ def init_db():
                 created_at TIMESTAMP DEFAULT NOW()
             )
         """)
-
-        cur.execute("""
-            ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT
-        """)
-
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS sensor_readings (
                 id             SERIAL PRIMARY KEY,
@@ -148,11 +157,7 @@ def init_db():
                 timestamp      TIMESTAMP DEFAULT NOW()
             )
         """)
-
-        cur.execute("""
-            ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS is_immediate BOOLEAN NOT NULL DEFAULT FALSE
-        """)
-
+        cur.execute("ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS is_immediate BOOLEAN NOT NULL DEFAULT FALSE")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS system_logs (
                 id        SERIAL PRIMARY KEY,
@@ -163,7 +168,6 @@ def init_db():
                 timestamp TIMESTAMP DEFAULT NOW()
             )
         """)
-
         conn.commit()
         print("[DB] Tables initialized successfully")
     except Exception as e:
