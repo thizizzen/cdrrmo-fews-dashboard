@@ -657,6 +657,7 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
   const handle = async () => {
     if (!form.name.trim())        { setError("Full name is required."); return; }
     if (!form.email.trim())       { setError("Email is required."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) { setError("Enter a valid email address."); return; }
     if (!form.password.trim())    { setError("Password is required."); return; }
     if (form.password.length < 6) { setError("Password must be at least 6 characters."); return; }
     if (!form.phone.trim())       { setError("Phone number is required."); return; }
@@ -676,7 +677,8 @@ function AddUserModal({ onAdd, onClose, token, addLog }) {
         message: `New user ${form.name} (${form.role}, ${form.department}) has been added to the system`,
       });
       onClose();
-    } catch {
+    } catch (err) {
+      if (err?.message === "Unauthorized") return;
       setError("Network error. Try again.");
       setSaving(false);
     }
@@ -777,6 +779,7 @@ function ProfileDropdown({ user, token, onSave, onClose, addLog }) {
 
   // CHANGED: spinner shows while saving, then auto-closes — no "Saved" flash
   const handleSave = async () => {
+    if (!name.trim()) { setError("Name cannot be empty."); return; }
     setSaving(true);
     setError("");
     try {
@@ -795,7 +798,8 @@ function ProfileDropdown({ user, token, onSave, onClose, addLog }) {
         message: `${updated.name} updated their profile`,
       });
       onClose();
-    } catch {
+    } catch (err) {
+      if (err?.message === "Unauthorized") return;
       setError("Failed to save. Try again.");
       setSaving(false);
     }
@@ -904,7 +908,9 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
           return next;
         });
       })
-      .catch(() => setLoadError(true));
+      .catch(err => {
+        if (err?.message !== "Unauthorized") setLoadError(true);
+      });
   }, [token]);
 
   const getDeviceId = (id) => "fews" + id;
@@ -933,6 +939,12 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
     const f    = fewsData.find(x => x.id === id);
     const thr  = thresholds[id];
     const prev = prevThresholds[id];
+    if (!thr.warning || !thr.danger || thr.warning <= 0 || thr.danger <= 0) {
+      setThrError(p => ({ ...p, [id]: "Thresholds must be greater than 0." })); return;
+    }
+    if (thr.warning >= thr.danger) {
+      setThrError(p => ({ ...p, [id]: "Warning threshold must be less than Danger threshold." })); return;
+    }
     setThrSaving(p => ({ ...p, [id]: true }));
     setThrError(p => ({ ...p, [id]: "" }));
     try {
@@ -1547,6 +1559,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
   const [users, setUsers]                   = useState([]);
   const [loadingUsers, setLoadingUsers]     = useState(false);
   const [loadUsersError, setLoadUsersError] = useState(false);
+  const [actionError, setActionError]       = useState("");
   const [drafts, setDrafts]                 = useState({});
   const [confirmSave, setConfirmSave]       = useState(null);
   const [confirmRemove, setConfirmRemove]   = useState(null);
@@ -1593,12 +1606,11 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
         setDrafts(prev => { const n={...prev}; delete n[u.id]; return n; });
         if (u.id === user.id) onUserUpdate({ ...user, ...d });
       } else {
-        setLoadUsersError(true);
+        setActionError("Failed to save changes. Try again.");
       }
     } catch (err) {
-      if (err?.message !== "Unauthorized") setLoadUsersError(true);
+      if (err?.message !== "Unauthorized") setActionError("Failed to save changes. Try again.");
     }
-    setConfirmSave(null);
   };
 
   const doRemove = async () => {
@@ -1614,15 +1626,15 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
         });
         setUsers(prev => prev.filter(x => x.id !== u.id));
       } else {
-        setLoadUsersError(true);
+        setActionError("Failed to remove user. Try again.");
       }
     } catch (err) {
-      if (err?.message !== "Unauthorized") setLoadUsersError(true);
+      if (err?.message !== "Unauthorized") setActionError("Failed to remove user. Try again.");
     }
     setConfirmRemove(null);
   };
 
-  const doAdd = (newUser) => setUsers(prev => [...prev, newUser]);
+  const doAdd = (newUser) => { setUsers(prev => [...prev, newUser]); setActionError(""); };
 
   const handleSmsToggle = async (userId, newVal) => {
     setSmsSaving(p => ({ ...p, [userId]: true }));
@@ -1640,8 +1652,12 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
           station: "System", type: "system",
           message: `SMS alerts for ${target?.name || "user"} have been ${newVal ? "enabled" : "disabled"} by ${userName}`,
         });
+      } else {
+        setActionError("Failed to update SMS setting. Try again.");
       }
-    } catch {}
+    } catch (err) {
+      if (err?.message !== "Unauthorized") setActionError("Failed to update SMS setting. Try again.");
+    }
     setSmsSaving(p => ({ ...p, [userId]: false }));
   };
 
@@ -1739,6 +1755,12 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
             ) : loadUsersError ? (
               <div style={{ color: "var(--red)", fontSize: 12, padding: "12px 0" }}>⚠️ Failed to load users — check your connection and refresh.</div>
             ) : (
+              <>
+                {actionError && (
+                  <div style={{ color: "var(--red)", fontSize: 12, padding: "8px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, marginBottom: 8 }}>
+                    ⚠️ {actionError}
+                  </div>
+                )}
               <div className="mu-list">
                 {users.map(u => {
                   const d = getDraft(u); const changed = d.role !== u.role || d.department !== u.department;
@@ -1769,6 +1791,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
                   );
                 })}
               </div>
+            </>
             )}
           </div>
         )}
