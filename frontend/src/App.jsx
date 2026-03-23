@@ -63,9 +63,7 @@ function can(role, feature) {
   return false;
 }
 
-// ─── FIX 4: User normalization helper ────────────────────────────────────────
-// Ensures the user object always has all expected fields with safe defaults,
-// regardless of what the backend or sessionStorage returns.
+// ─── User normalization helper ────────────────────────────────────────────────
 function normalizeUser(parsed) {
   if (!parsed || typeof parsed !== "object") {
     return { name: "", role: "Operator", department: "", email: "", phone: "", photo: null, sms_enabled: false, initials: "?" };
@@ -85,7 +83,6 @@ function normalizeUser(parsed) {
     initials,
   };
 }
-// ─────────────────────────────────────────────────────────────────────────────
 
 // ─── FEWS BASE DATA ───────────────────────────────────────────────────────────
 const FEWS1_BASE = {
@@ -599,7 +596,6 @@ function ChangePasswordModal({ onClose, token, user, addLog }) {
   );
 }
 
-// ─── CHANGE PHONE MODAL ──────────────────────────────────────────────────────
 function ChangePhoneModal({ onClose, token, user, onPhoneChanged, addLog }) {
   const [phone, setPhone]           = useState("");
   const [phoneConfirm, setConfirm]  = useState("");
@@ -812,7 +808,6 @@ function ProfileDropdown({ user, token, onSave, onClose, addLog }) {
       });
       if (!res.ok) throw new Error("Failed to save");
       const updated = await res.json();
-      // FIX 4: normalize the updated user before passing up
       const normalized = normalizeUser({ ...user, name: updated.name, photo: updated.photo });
       onSave(normalized);
       addLog({
@@ -1525,7 +1520,6 @@ function LogsPage({ token, userRole }) {
 }
 
 // ─── SETTINGS PAGE ────────────────────────────────────────────────────────────
-// ─── MU DROPDOWN ─────────────────────────────────────────────────────────────
 function MuDropdown({ value, options, onChange }) {
   const [open, setOpen] = useState(false);
   const ref = useRef();
@@ -1573,7 +1567,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
   const [showPassword, setShowPassword]     = useState(false);
   const [showPhone, setShowPhone]           = useState(false);
   const [showAddUser, setShowAddUser]       = useState(false);
-  const [notifs, setNotifs]                 = useState({ autoSiren: true, sms: true, email: false });
+  const [notifs, setNotifs]                 = useState({ autoSiren: true, email: false });
   const [notifSaving, setNotifSaving]       = useState({});
   const [smsSaving, setSmsSaving]           = useState({});
   const [confirmNotif, setConfirmNotif]     = useState(null);
@@ -1590,7 +1584,6 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
 
   const NOTIF_LABELS = {
     autoSiren: "Auto-trigger siren on CRITICAL",
-    sms:       "SMS Notifications",
     email:     "Email Notifications",
   };
 
@@ -1625,7 +1618,6 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
         if (d.department !== u.department) addLog({ station: "System", type: "system", message: `${u.name}'s department has been changed from ${u.department} to ${d.department} by ${userName}` });
         setUsers(prev => prev.map(x => x.id === u.id ? { ...x, ...d } : x));
         setDrafts(prev => { const n={...prev}; delete n[u.id]; return n; });
-        // FIX 4: normalize when updating the current user's own record
         if (u.id === user.id) onUserUpdate(normalizeUser({ ...user, ...d }));
       } else {
         setActionError("Failed to save changes. Try again.");
@@ -1669,7 +1661,6 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
       if (res.ok) {
         const target = users.find(u => u.id === userId);
         setUsers(prev => prev.map(u => u.id === userId ? { ...u, sms_enabled: newVal } : u));
-        // FIX 4: normalize when updating current user's sms_enabled
         if (userId === user.id) onUserUpdate(normalizeUser({ ...user, sms_enabled: newVal }));
         addLog({
           station: "System", type: "system",
@@ -1709,7 +1700,6 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
         onClose={() => setShowEmail(false)}
         token={token} user={user} addLog={addLog}
         onEmailChanged={(newEmail) => {
-          // FIX 4: normalize when updating email
           onUserUpdate(normalizeUser({ ...user, email: newEmail }));
           setUsers(prev => prev.map(u => u.id === user.id ? { ...u, email: newEmail } : u));
         }} />}
@@ -1720,7 +1710,6 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
         onClose={() => setShowPhone(false)}
         token={token} user={user} addLog={addLog}
         onPhoneChanged={(newPhone) => {
-          // FIX 4: normalize when updating phone
           onUserUpdate(normalizeUser({ ...user, phone: newPhone }));
           setUsers(prev => prev.map(u => u.id === user.id ? { ...u, phone: newPhone } : u));
         }} />}
@@ -1756,7 +1745,7 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
               <span className="sa-icon">✉</span><div className="sa-text"><div className="sa-label">Change Email</div><div className="sa-sub">Update your account email address</div></div><span className="sa-arrow">›</span>
             </button>
             <button className="settings-action-btn" onClick={() => setShowPassword(true)}>
-              <span className="sa-icon">🔑</span><div className="sa-text"><div className="sa-label">Change Password</div><div className="sa-sub">Update your login password</div></div><span className="sa-arrow">›</span>
+              <span className="sa-icon">🔒</span><div className="sa-text"><div className="sa-label">Change Password</div><div className="sa-sub">Update your login password</div></div><span className="sa-arrow">›</span>
             </button>
             <button className="settings-action-btn" onClick={() => setShowPhone(true)}>
               <span className="sa-icon">📱</span><div className="sa-text"><div className="sa-label">Change Phone Number</div><div className="sa-sub">Update your SMS notification number</div></div><span className="sa-arrow">›</span>
@@ -1880,7 +1869,6 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
-  // FIX 4: Use normalizeUser when initializing user state from sessionStorage
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try {
       const tok    = sessionStorage.getItem("token");
@@ -1899,7 +1887,6 @@ export default function App() {
   const [copiedId, setCopiedId] = useState(null);
   const copiedTimerRef = useRef(null);
 
-  // FIX 2: Clean up copiedTimerRef on unmount to prevent state updates on dead component
   useEffect(() => {
     return () => {
       if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
@@ -1910,7 +1897,6 @@ export default function App() {
   const [fews1Connected, setFews1Connected] = useState(false);
   const [lastUpdated, setLastUpdated]       = useState(null);
 
-  // FIX 4: normalizeUser applied when reading user from sessionStorage on mount
   const [user, setUser] = useState(() => {
     try {
       const stored = sessionStorage.getItem("user");
@@ -1925,11 +1911,22 @@ export default function App() {
   });
 
   const [token, setToken] = useState(() => sessionStorage.getItem("token") || "");
-
-  const [sirens, setSirens] = useState({ 1: false });
-
-  // ─── Water level history state ───────────────────────────────────────────
+  const [sirens, setSirens] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem("sirens");
+      return stored ? JSON.parse(stored) : { 1: false };
+    } catch { return { 1: false }; }
+  });
+  useEffect(() => {
+  sessionStorage.setItem("sirens", JSON.stringify(sirens));
+}, [sirens]);
   const [historyData, setHistoryData] = useState({ positions: [], values: [], exactLabels: [] });
+
+  const [chartNow, setChartNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setChartNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const addLog = useCallback(async ({ station, type, message }) => {
     const tok = sessionStorage.getItem("token") || token;
@@ -1945,7 +1942,6 @@ export default function App() {
     }
   }, [token, user.name]);
 
-  // FIX 4: handleLogin normalizes the user from sessionStorage after login
   const handleLogin = (role) => {
     try {
       const stored = sessionStorage.getItem("user");
@@ -1983,8 +1979,8 @@ export default function App() {
     sessionStorage.removeItem("fews1_offline_time");
     sessionStorage.removeItem("fews1_was_offline");
     sessionStorage.removeItem("fews1_initial_logged");
+    sessionStorage.removeItem("sirens");
     setIsLoggedIn(false);
-    // FIX 4: reset to a normalized empty user
     setUser(normalizeUser({}));
     setToken("");
     setShowLogoutModal(false);
@@ -2007,7 +2003,6 @@ export default function App() {
     [user.role]
   );
 
-  // ─── Track FEWS 1 online/offline transitions ─────────────────────────────
   const wasConnectedRef = useRef(null);
   const offlineTimeRef  = useRef(null);
 
@@ -2089,7 +2084,6 @@ export default function App() {
     wasConnectedRef.current = false;
   }, [addLog]);
 
-  // ─── Poll latest sensor data ──────────────────────────────────────────────
   useEffect(() => {
     const failCount = { current: 0 };
     let timeoutId = null;
@@ -2137,7 +2131,6 @@ export default function App() {
     };
   }, [handleOnline, handleOffline]);
 
-  // ─── Fetch water level history ────────────────────────────────────────────
   useEffect(() => {
     const buildChart = (rows) => {
       const now      = Date.now();
@@ -2215,39 +2208,38 @@ export default function App() {
     return [fews1];
   }, [fews1Live]);
 
-const toggleSiren = async (id) => {
-  if (!can(user.role, "sirenControl")) return;
-  const turningOn = !sirens[id];
-  const deviceId = "fews" + id;
+  const toggleSiren = async (id) => {
+    if (!can(user.role, "sirenControl")) return;
+    const turningOn = !sirens[id];
+    const deviceId = "fews" + id;
 
-  try {
-    await authFetch(`${API_BASE}/siren/${deviceId}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ state: turningOn ? "on" : "off" })
-    });
-    console.log(`[SIREN] Command sent: ${turningOn ? "on" : "off"}`);
-  } catch (e) {
-    console.error("[SIREN] Control failed:", e);
-  }
+    try {
+      await authFetch(`${API_BASE}/siren/${deviceId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ state: turningOn ? "on" : "off" })
+      });
+      console.log(`[SIREN] Command sent: ${turningOn ? "on" : "off"}`);
+    } catch (e) {
+      console.error("[SIREN] Control failed:", e);
+    }
 
-  setSirens(prev => ({ ...prev, [id]: !prev[id] }));
-  const f = allFews.find(x => x.id === id);
-  if (f) {
-    addLog({
-      station: f.name,
-      type: turningOn ? "warning" : "system",
-      message: turningOn
-        ? `Siren for ${f.name} (${f.location}) has been manually activated by ${user.name}`
-        : `Siren for ${f.name} (${f.location}) has been silenced by ${user.name}`,
-    });
-  }
-};
+    setSirens(prev => ({ ...prev, [id]: !prev[id] }));
+    const f = allFews.find(x => x.id === id);
+    if (f) {
+      addLog({
+        station: f.name,
+        type: turningOn ? "warning" : "system",
+        message: turningOn
+          ? `Siren for ${f.name} (${f.location}) has been manually activated by ${user.name}`
+          : `Siren for ${f.name} (${f.location}) has been silenced by ${user.name}`,
+      });
+    }
+  };
 
-  // FIX 1: Memoize chart points so they only recompute when historyData changes
   const chartPoints = useMemo(() =>
     (historyData?.values?.length)
       ? historyData.positions.map((ms, i) => ({ x: ms, y: historyData.values[i] }))
@@ -2255,24 +2247,11 @@ const toggleSiren = async (id) => {
     [historyData]
   );
 
+  const CHART_WINDOW  = 60 * 60 * 1000;
   const CHART_PADDING = 2 * 60 * 1000;
-
-  // FIX 1: Memoize chart window boundaries
-  const chartWinStart = useMemo(() =>
-    historyData?.positions?.length
-      ? Math.floor((historyData.positions[0] - CHART_PADDING) / 300000) * 300000
-      : Math.floor((Date.now() - 60 * 60 * 1000) / 300000) * 300000,
-    [historyData]
-  );
-
-  const chartWinEnd = useMemo(() =>
-    historyData?.positions?.length
-      ? Math.ceil((historyData.positions[historyData.positions.length - 1] + CHART_PADDING) / 300000) * 300000
-      : Math.ceil(Date.now() / 300000) * 300000,
-    [historyData]
-  );
-
-  // FIX 1: Memoize waterChartData — only rebuilds when chartPoints changes
+  const chartWinEnd   = useMemo(() => Math.ceil(chartNow / 300000) * 300000, [chartNow]);
+  const chartWinStart = useMemo(() => chartWinEnd - CHART_WINDOW - CHART_PADDING, [chartWinEnd]);
+  const hasEverHadData = historyData?.values?.length > 0;
   const waterChartData = useMemo(() => ({
     datasets: [{
       label: "FEWS 1",
@@ -2307,7 +2286,6 @@ const toggleSiren = async (id) => {
     }],
   }), [chartPoints]);
 
-  // FIX 1: Memoize waterChartOptions — only rebuilds when chart window boundaries change
   const waterChartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -2382,23 +2360,21 @@ const toggleSiren = async (id) => {
     },
   }), [chartWinStart, chartWinEnd, historyData]);
 
-  // FIX 1: Memoize batteryData — only rebuilds when allFews or fews1Connected changes
   const batteryData = useMemo(() => ({
     labels: allFews.map(f => f.name),
     datasets: [{
       label: "Battery %",
-      data: allFews.map(f => fews1Connected ? f.battery : null),
+      data: allFews.map(f => fews1Connected ? f.battery : 0),
       backgroundColor: allFews.map(f =>
         fews1Connected
           ? (f.battery > 80 ? "#22c55e" : f.battery > 50 ? "#f59e0b" : "#ef4444")
-          : "rgba(255,255,255,0.06)"
+          : "rgba(255,255,255,0.08)"
       ),
       borderRadius: 6,
       barThickness: 28,
     }],
   }), [allFews, fews1Connected]);
 
-  // FIX 1: Memoize batteryOptions — static config, only needs to be created once
   const batteryOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -2407,7 +2383,7 @@ const toggleSiren = async (id) => {
       tooltip: {
         backgroundColor: "#1e293b", titleColor: "#fff", bodyColor: "#94a3b8",
         borderColor: "#334155", borderWidth: 1,
-        callbacks: { label: ctx => ctx.parsed.y !== null ? `${ctx.parsed.y}%` : "No data" },
+        callbacks: { label: ctx => fews1Connected ? `${ctx.parsed.y}%` : "Offline" },
       },
     },
     scales: {
@@ -2530,7 +2506,6 @@ const toggleSiren = async (id) => {
                   <ProfileDropdown
                     user={user}
                     token={token}
-                    // FIX 4: normalize the saved user before storing in state and sessionStorage
                     onSave={u => {
                       const normalized = normalizeUser(u);
                       setUser(normalized);
@@ -2560,11 +2535,13 @@ const toggleSiren = async (id) => {
                     <FlyToStation fews={selectedStation} />
                     <OpenPopup fews={selectedStation} markerRefs={markerRefs} />
                     {allFews.map(f => {
-                      const cfg   = STATUS_CONFIG[f.status] || STATUS_CONFIG["safe"];
-                      const isSel = selectedFEWS === f.id;
-                      const icon  = L.divIcon({
+                      const cfg            = STATUS_CONFIG[f.status] || STATUS_CONFIG["safe"];
+                      const isSel          = selectedFEWS === f.id;
+                      const isActuallyLive = f.isLive && fews1Connected;
+                      const markerColor    = isActuallyLive ? cfg.color : "#64748b";
+                      const icon = L.divIcon({
                         className: "",
-                        html: `<div style="width:${isSel?"18px":"14px"};height:${isSel?"18px":"14px"};border-radius:50%;background:${cfg.color};border:2px solid white;box-shadow:0 0 ${isSel?"12px":"8px"} ${cfg.color};transition:all 0.3s;"></div>`,
+                        html: `<div style="width:${isSel?"18px":"14px"};height:${isSel?"18px":"14px"};border-radius:50%;background:${markerColor};border:2px solid white;box-shadow:0 0 ${isSel?"12px":"8px"} ${markerColor};transition:all 0.3s;"></div>`,
                         iconSize: [isSel?18:14, isSel?18:14],
                         iconAnchor: [isSel?9:7, isSel?9:7],
                       });
@@ -2609,43 +2586,34 @@ const toggleSiren = async (id) => {
               <div className="card card-water">
                 <div className="card-header">
                   <h2>Water Level</h2>
-                  <span className="card-tag">
-                    {fews1Connected
-                      ? (historyData.values.length > 0 ? `${historyData.values.length} readings` : "Live")
-                      : "Waiting for data"}
-                  </span>
+                    <span className="card-tag">
+                      {hasEverHadData
+                        ? (fews1Connected ? `${historyData.values.length} readings` : "Last known data")
+                        : "Waiting for data"}
+                    </span>
                 </div>
-                {fews1Connected && historyData.values.length > 0 ? (
-                  <div className="chart-wrap">
-                    <Line data={waterChartData} options={waterChartOptions} />
-                  </div>
-                ) : (
-                  <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8 }}>
-                    <div style={{ fontSize:24 }}>📡</div>
-                    <div style={{ color:"var(--text-3)", fontSize:12, fontWeight:600 }}>
-                      {fews1Connected ? "Loading history…" : "Waiting for FEWS 1 to come online"}
+                  {hasEverHadData ? (
+                    <div className="chart-wrap">
+                      <Line data={waterChartData} options={waterChartOptions} />
                     </div>
-                    <div style={{ color:"var(--text-3)", fontSize:10, fontFamily:"var(--mono)" }}>
-                      Data will appear once the sensor starts transmitting
+                  ) : (
+                    <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8 }}>
+                      <div style={{ fontSize:24 }}>📡</div>
+                      <div style={{ color:"var(--text-3)", fontSize:12, fontWeight:600 }}>Waiting for FEWS 1 to come online</div>
+                      <div style={{ color:"var(--text-3)", fontSize:10, fontFamily:"var(--mono)" }}>Data will appear once the sensor starts transmitting</div>
                     </div>
-                  </div>
-                )}
+                  )}
               </div>
 
               {/* ─── BATTERY CHART ─── */}
-              <div className="card card-battery">
+                <div className="card card-battery">
                 <div className="card-header">
                   <h2>Battery Level</h2>
-                  <span className="card-tag">{fews1Connected ? "FEWS 1" : "Waiting for data"}</span>
+                  <span className="card-tag">{fews1Connected ? "FEWS 1" : "Offline"}</span>
                 </div>
-                {fews1Connected ? (
-                  <div className="chart-wrap"><Bar data={batteryData} options={batteryOptions} /></div>
-                ) : (
-                  <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8 }}>
-                    <div style={{ fontSize:24 }}>🔋</div>
-                    <div style={{ color:"var(--text-3)", fontSize:12, fontWeight:600 }}>No battery data yet</div>
-                  </div>
-                )}
+                <div className="chart-wrap">
+                  <Bar data={batteryData} options={batteryOptions} />
+                </div>
               </div>
             </main>
 
@@ -2735,7 +2703,6 @@ const toggleSiren = async (id) => {
           userRole={user.role}
           userName={user.name}
           user={user}
-          // FIX 4: normalize and persist whenever settings updates the user
           onUserUpdate={(u) => {
             const normalized = normalizeUser(u);
             setUser(normalized);
