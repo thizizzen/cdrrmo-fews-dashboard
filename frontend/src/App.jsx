@@ -2307,15 +2307,20 @@ const waterChartOptions = useMemo(() => ({
     plugins: {
       legend: {
         display: true,
+        position: "top",
+        align: "center",
         labels: {
           color: "#94a3b8",
           font: { size: 9 },
           boxWidth: 8,
           boxHeight: 8,
-          generateLabels: (chart) => [{
+          generateLabels: () => [{
             text: "FEWS 1",
             fillStyle: "#38bdf8",
             strokeStyle: "#38bdf8",
+            fontColor: "#94a3b8",
+            textColor: "#94a3b8",
+            color: "#94a3b8",
             lineWidth: 0,
             hidden: false,
             datasetIndex: 0,
