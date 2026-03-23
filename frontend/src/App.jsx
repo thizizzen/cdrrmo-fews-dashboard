@@ -1882,7 +1882,9 @@ export default function App() {
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [sidebarOpen, setSidebarOpen]                 = useState(false);
   const [selectedFEWS, setSelectedFEWS]               = useState(null);
-  const [activeNav, setActiveNav]                     = useState("Dashboard");
+  const [activeNav, setActiveNav]                     = useState(() => {
+    return sessionStorage.getItem("activeNav") || "Dashboard";
+  });
   const markerRefs = useRef({});
   const [copiedId, setCopiedId] = useState(null);
   const copiedTimerRef = useRef(null);
@@ -1921,6 +1923,9 @@ export default function App() {
   sessionStorage.setItem("sirens", JSON.stringify(sirens));
 }, [sirens]);
   const [historyData, setHistoryData] = useState({ positions: [], values: [], exactLabels: [] });
+  const [hadDataBefore, setHadDataBefore] = useState(() => {
+  return sessionStorage.getItem("fews1_had_data") === "true";
+});
 
   const [chartNow, setChartNow] = useState(() => Date.now());
   useEffect(() => {
@@ -1955,6 +1960,7 @@ export default function App() {
     setToken(sessionStorage.getItem("token") || "");
     setIsLoggedIn(true);
     setActiveNav("Dashboard");
+    sessionStorage.setItem("activeNav", "Dashboard");
   };
 
   const userRef = useRef(user);
@@ -1980,6 +1986,8 @@ export default function App() {
     sessionStorage.removeItem("fews1_was_offline");
     sessionStorage.removeItem("fews1_initial_logged");
     sessionStorage.removeItem("sirens");
+    sessionStorage.removeItem("fews1_had_data");
+    sessionStorage.removeItem("activeNav");
     setIsLoggedIn(false);
     setUser(normalizeUser({}));
     setToken("");
@@ -2168,6 +2176,8 @@ export default function App() {
       }
 
       setHistoryData({ positions, values, exactLabels });
+      sessionStorage.setItem("fews1_had_data", "true");
+      setHadDataBefore(true);
     };
 
     const historyFailCount = { current: 0 };
@@ -2256,7 +2266,7 @@ export default function App() {
   const CHART_PADDING = 2 * 60 * 1000;
   const chartWinEnd   = useMemo(() => Math.ceil(chartNow / 300000) * 300000, [chartNow]);
   const chartWinStart = useMemo(() => chartWinEnd - CHART_WINDOW - CHART_PADDING, [chartWinEnd]);
-  const hasEverHadData = historyData?.values?.length > 0;
+  const hasEverHadData = historyData?.values?.length > 0 || hadDataBefore;
   const waterChartData = useMemo(() => ({
     datasets: [{
       label: "FEWS 1",
@@ -2471,7 +2481,10 @@ const waterChartOptions = useMemo(() => ({
         </div>
         <nav className="nav">
           {navItems.map(item => (
-            <button key={item.key} className={`nav-btn ${activeNav === item.key ? "active" : ""}`} onClick={() => setActiveNav(item.key)}>
+            <button key={item.key} className={`nav-btn ${activeNav === item.key ? "active" : ""}`} onClick={() => {
+              setActiveNav(item.key);
+              sessionStorage.setItem("activeNav", item.key);
+            }}>
               <span className="nav-icon">{item.icon}</span>
               <span className={`nav-label ${sidebarOpen ? "" : "hidden"}`}>{item.label}</span>
             </button>
