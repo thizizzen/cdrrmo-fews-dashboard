@@ -2314,6 +2314,7 @@ const waterChartOptions = useMemo(() => ({
           font: { size: 9 },
           boxWidth: 8,
           boxHeight: 8,
+          padding: 8,
           generateLabels: () => [{
             text: "FEWS 1",
             fillStyle: "#38bdf8",
@@ -2431,11 +2432,14 @@ const waterChartOptions = useMemo(() => ({
           font: { size: 9 },
           boxWidth: 8,
           boxHeight: 8,
-          generateLabels: (chart) => [{
+          padding: 8,
+          generateLabels: () => [{
             text: "FEWS 1",
             fillStyle: "#38bdf8",
             strokeStyle: "#38bdf8",
             fontColor: "#94a3b8",
+            textColor: "#94a3b8",
+            color: "#94a3b8",
             lineWidth: 0,
             hidden: false,
             datasetIndex: 0,
