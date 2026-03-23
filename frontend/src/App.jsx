@@ -2307,7 +2307,20 @@ const waterChartOptions = useMemo(() => ({
     plugins: {
       legend: {
         display: true,
-        labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 8, boxHeight: 8 },
+        labels: {
+          color: "#94a3b8",
+          font: { size: 9 },
+          boxWidth: 8,
+          boxHeight: 8,
+          generateLabels: (chart) => [{
+            text: "FEWS 1",
+            fillStyle: "#38bdf8",
+            strokeStyle: "#38bdf8",
+            lineWidth: 0,
+            hidden: false,
+            datasetIndex: 0,
+          }],
+        },
       },
       tooltip: {
         backgroundColor: "#1e293b",
@@ -2405,9 +2418,22 @@ const waterChartOptions = useMemo(() => ({
     maintainAspectRatio: false,
     plugins: {
       legend: {
-      display: true,
-      labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 8, boxHeight: 8 },
-    },
+        display: true,
+        labels: {
+          color: "#94a3b8",
+          font: { size: 9 },
+          boxWidth: 8,
+          boxHeight: 8,
+          generateLabels: (chart) => [{
+            text: "FEWS 1",
+            fillStyle: "#38bdf8",
+            strokeStyle: "#38bdf8",
+            lineWidth: 0,
+            hidden: false,
+            datasetIndex: 0,
+          }],
+        },
+      },
       tooltip: {
         backgroundColor: "#1e293b", titleColor: "#fff", bodyColor: "#94a3b8",
         borderColor: "#334155", borderWidth: 1,
