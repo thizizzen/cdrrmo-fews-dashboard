@@ -2297,7 +2297,7 @@ const waterChartOptions = useMemo(() => ({
     plugins: {
       legend: {
         display: true,
-        labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 10, boxHeight: 2 },
+        labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 10 }
       },
       tooltip: {
         backgroundColor: "#1e293b",
@@ -2355,14 +2355,17 @@ const waterChartOptions = useMemo(() => ({
           font: { size: 9 },
           stepSize: 5 * 60 * 1000,
           callback: (val) => {
-            const phDate = new Date(val + 8 * 60 * 60 * 1000);
-            if (phDate.getUTCMinutes() % 5 !== 0) return "";
+            const d = new Date(val);
+            const phMinutes = parseInt(
+              new Intl.DateTimeFormat("en-PH", { timeZone: "Asia/Manila", minute: "2-digit" }).format(d)
+            );
+            if (phMinutes % 5 !== 0) return "";
             return new Intl.DateTimeFormat("en-PH", {
               timeZone: "Asia/Manila",
               hour: "2-digit",
               minute: "2-digit",
               hour12: false,
-            }).format(new Date(val));
+            }).format(d);
           },
         },
       },
@@ -2392,7 +2395,7 @@ const waterChartOptions = useMemo(() => ({
     plugins: {
       legend: {
       display: true,
-      labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 10, boxHeight: 2 },
+      labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 10 }
     },
       tooltip: {
         backgroundColor: "#1e293b", titleColor: "#fff", bodyColor: "#94a3b8",
