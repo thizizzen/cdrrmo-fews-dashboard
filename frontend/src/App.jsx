@@ -2133,35 +2133,25 @@ export default function App() {
 
   useEffect(() => {
     const buildChart = (rows) => {
-      const now      = Date.now();
-      const windowMs = 60 * 60 * 1000;
-      const winStart = now - windowMs;
+      const all = rows || [];
 
-      const recent = (rows || []).filter((r) => {
+      const exactLabels = all.map((r) => {
         const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
-        return new Date(utcStr).getTime() >= winStart;
-      });
-
-      const exactLabels = recent.map((r) => {
-        const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
-        const ts = new Date(utcStr).getTime();
         return new Intl.DateTimeFormat("en-PH", {
           timeZone: "Asia/Manila",
           hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
-        }).format(new Date(ts));
+        }).format(new Date(utcStr));
       });
 
-      const msTimestamps = recent.map((r) => {
+      const msTimestamps = all.map((r) => {
         const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
         return new Date(utcStr).getTime();
       });
 
       setHistoryData({
         positions: msTimestamps,
-        values: recent.map((r) => r.water_level_cm),
+        values: all.map((r) => r.water_level_cm),
         exactLabels,
-        winStart,
-        winEnd: now,
       });
     };
 
@@ -2257,8 +2247,8 @@ export default function App() {
       label: "FEWS 1",
       data: chartPoints,
       spanGaps: false,
-      borderColor: "#22c55e",
-      backgroundColor: "rgba(34,197,94,0.08)",
+      borderColor: "#38bdf8",
+      backgroundColor: "rgba(56,189,248,0.08)",
       tension: 0,
       pointRadius: 3,
       pointHoverRadius: 6,
@@ -2268,21 +2258,21 @@ export default function App() {
           const v = ctx.p1.parsed.y;
           if (v > 300) return "#ef4444";
           if (v > 200) return "#f59e0b";
-          return "#22c55e";
+          return "#38bdf8";
         },
       },
-      pointBackgroundColor: (ctx) => {
-        const v = ctx.parsed?.y ?? 0;
-        if (v > 300) return "#ef4444";
-        if (v > 200) return "#f59e0b";
-        return "#22c55e";
-      },
-      pointBorderColor: (ctx) => {
-        const v = ctx.parsed?.y ?? 0;
-        if (v > 300) return "#ef4444";
-        if (v > 200) return "#f59e0b";
-        return "#22c55e";
-      },
+        pointBackgroundColor: (ctx) => {
+          const v = ctx.parsed?.y ?? 0;
+          if (v > 300) return "#ef4444";
+          if (v > 200) return "#f59e0b";
+          return "#38bdf8";
+        },
+        pointBorderColor: (ctx) => {
+          const v = ctx.parsed?.y ?? 0;
+          if (v > 300) return "#ef4444";
+          if (v > 200) return "#f59e0b";
+          return "#38bdf8";
+        },
     }],
   }), [chartPoints]);
 
@@ -2314,9 +2304,9 @@ export default function App() {
       },
       annotation: {
         annotations: {
-          zoneSafe:    { type: "box", yMin: 0,   yMax: 200, backgroundColor: "rgba(34,197,94,0.04)",  borderWidth: 0 },
-          zoneWarning: { type: "box", yMin: 200, yMax: 300, backgroundColor: "rgba(245,158,11,0.05)", borderWidth: 0 },
-          zoneCritical:{ type: "box", yMin: 300, yMax: 500, backgroundColor: "rgba(239,68,68,0.05)",  borderWidth: 0 },
+          zoneSafe:    { type: "box", yMin: 0,   yMax: 200, backgroundColor: "rgba(34,197,94,0.08)",  borderWidth: 0 },
+          zoneWarning: { type: "box", yMin: 200, yMax: 300, backgroundColor: "rgba(245,158,11,0.10)", borderWidth: 0 },
+          zoneCritical:{ type: "box", yMin: 300, yMax: 500, backgroundColor: "rgba(239,68,68,0.10)",  borderWidth: 0 },
           lineWarning: { type: "line", yMin: 200, yMax: 200, borderColor: "rgba(245,158,11,0.55)", borderWidth: 1, borderDash: [4, 4], label: { display: false } },
           lineCritical:{ type: "line", yMin: 300, yMax: 300, borderColor: "rgba(239,68,68,0.55)",  borderWidth: 1, borderDash: [4, 4], label: { display: false } },
         },
@@ -2362,28 +2352,33 @@ export default function App() {
 
   const batteryData = useMemo(() => ({
     labels: allFews.map(f => f.name),
-    datasets: [{
-      label: "Battery %",
-      data: allFews.map(f => fews1Connected ? f.battery : 0),
-      backgroundColor: allFews.map(f =>
-        fews1Connected
-          ? (f.battery > 80 ? "#22c55e" : f.battery > 50 ? "#f59e0b" : "#ef4444")
-          : "rgba(255,255,255,0.08)"
-      ),
-      borderRadius: 6,
-      barThickness: 28,
-    }],
+      datasets: [{
+        label: "FEWS 1",
+        data: allFews.map(f => fews1Connected ? Math.max(f.battery, 1) : 1),
+        backgroundColor: allFews.map(f =>
+          fews1Connected
+            ? (f.battery > 80 ? "#22c55e" : f.battery > 50 ? "#f59e0b" : "#ef4444")
+            : "rgba(255,255,255,0.10)"
+        ),
+        borderColor: "#38bdf8",
+        borderWidth: 1,
+        borderRadius: 6,
+        barThickness: 28,
+      }],
   }), [allFews, fews1Connected]);
 
   const batteryOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { display: false },
+      legend: {
+      display: true,
+      labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 10 },
+    },
       tooltip: {
         backgroundColor: "#1e293b", titleColor: "#fff", bodyColor: "#94a3b8",
         borderColor: "#334155", borderWidth: 1,
-        callbacks: { label: ctx => fews1Connected ? `${ctx.parsed.y}%` : "Offline" },
+        callbacks: { label: ctx => fews1Connected ? `${Math.round(ctx.parsed.y)}%` : "Offline — 0%" },
       },
     },
     scales: {
@@ -2398,7 +2393,7 @@ export default function App() {
       },
     },
     layout: { padding: { top: 4 } },
-  }), []);
+  }), [fews1Connected]);
 
   const alertCount      = allFews.filter(f => f.status !== "safe").length;
   const selectedStation = allFews.find(f => f.id === selectedFEWS) || null;
@@ -2570,7 +2565,7 @@ export default function App() {
                                   setCopiedId(null);
                                   copiedTimerRef.current = null;
                                 }, 1500);
-                              }} style={{ marginTop:"7px", padding:"3px 8px", background: copiedId===f.id?"#22c55e":cfg.color, color:"#000", border:"none", outline:"none", boxShadow:"none", borderRadius:"4px", cursor:"pointer", fontWeight:"700", fontSize:"10px", width:"100%", transition:"background 0.2s" }}>
+                              }} style={{ marginTop:"7px", padding:"3px 8px", background: copiedId===f.id?"#22c55e":markerColor, color:"#000", border:"none", outline:"none", boxShadow:"none", borderRadius:"4px", cursor:"pointer", fontWeight:"700", fontSize:"10px", width:"100%", transition:"background 0.2s" }}>
                                 {copiedId===f.id ? "Copied!" : "📋 Copy Coordinates"}
                               </button>
                             </div>
@@ -2643,7 +2638,10 @@ export default function App() {
                         </div>
                         <div className="rsb-loc">{f.location || "-"}</div>
                       </div>
-                      <div className="rsb-badge" style={{ color: cfg.color, background: cfg.bg }}>
+                      <div className="rsb-badge" style={{ 
+                        color: isActuallyLive ? cfg.color : "var(--text-3)", 
+                        background: isActuallyLive ? cfg.bg : "rgba(255,255,255,0.04)" 
+                      }}>
                         {isActuallyLive ? cfg.label : "—"}
                       </div>
                     </button>
