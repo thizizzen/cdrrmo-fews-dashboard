@@ -2135,7 +2135,14 @@ export default function App() {
     const buildChart = (rows) => {
       const all = rows || [];
 
-      const exactLabels = all.map((r) => {
+      const rawTimestamps = all.map((r) => {
+        const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
+        return new Date(utcStr).getTime();
+      });
+
+      const rawValues = all.map((r) => r.water_level_cm);
+
+      const rawLabels = all.map((r) => {
         const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
         return new Intl.DateTimeFormat("en-PH", {
           timeZone: "Asia/Manila",
@@ -2143,16 +2150,24 @@ export default function App() {
         }).format(new Date(utcStr));
       });
 
-      const msTimestamps = all.map((r) => {
-        const utcStr = r.timestamp.replace(" ", "T").replace(/Z?$/, "Z");
-        return new Date(utcStr).getTime();
-      });
+      const GAP_THRESHOLD = 30 * 60 * 1000; // 30 minutes
+      const positions = [];
+      const values = [];
+      const exactLabels = [];
 
-      setHistoryData({
-        positions: msTimestamps,
-        values: all.map((r) => r.water_level_cm),
-        exactLabels,
-      });
+      for (let i = 0; i < rawTimestamps.length; i++) {
+        if (i > 0 && rawTimestamps[i] - rawTimestamps[i - 1] > GAP_THRESHOLD) {
+          // Insert a null point to break the line
+          positions.push(rawTimestamps[i - 1] + 1000);
+          values.push(null);
+          exactLabels.push("");
+        }
+        positions.push(rawTimestamps[i]);
+        values.push(rawValues[i]);
+        exactLabels.push(rawLabels[i]);
+      }
+
+      setHistoryData({ positions, values, exactLabels });
     };
 
     const historyFailCount = { current: 0 };
@@ -2276,13 +2291,13 @@ export default function App() {
     }],
   }), [chartPoints]);
 
-  const waterChartOptions = useMemo(() => ({
+const waterChartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
         display: true,
-        labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 10 },
+        labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 10, boxHeight: 2 },
       },
       tooltip: {
         backgroundColor: "#1e293b",
@@ -2339,22 +2354,26 @@ export default function App() {
           minRotation: 0,
           font: { size: 9 },
           stepSize: 5 * 60 * 1000,
-          callback: (val) => new Intl.DateTimeFormat("en-PH", {
-            timeZone: "Asia/Manila",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-          }).format(new Date(val)),
+          callback: (val) => {
+            const phDate = new Date(val + 8 * 60 * 60 * 1000);
+            if (phDate.getUTCMinutes() % 5 !== 0) return "";
+            return new Intl.DateTimeFormat("en-PH", {
+              timeZone: "Asia/Manila",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            }).format(new Date(val));
+          },
         },
       },
     },
   }), [chartWinStart, chartWinEnd, historyData]);
 
   const batteryData = useMemo(() => ({
-    labels: allFews.map(f => f.name),
+    labels: allFews.map(() => ""),
       datasets: [{
         label: "FEWS 1",
-        data: allFews.map(f => fews1Connected ? Math.max(f.battery, 1) : 1),
+        data: allFews.map(f => fews1Connected ? f.battery : 0),
         backgroundColor: allFews.map(f =>
           fews1Connected
             ? (f.battery > 80 ? "#22c55e" : f.battery > 50 ? "#f59e0b" : "#ef4444")
@@ -2373,12 +2392,12 @@ export default function App() {
     plugins: {
       legend: {
       display: true,
-      labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 10 },
+      labels: { color: "#94a3b8", font: { size: 9 }, boxWidth: 10, boxHeight: 2 },
     },
       tooltip: {
         backgroundColor: "#1e293b", titleColor: "#fff", bodyColor: "#94a3b8",
         borderColor: "#334155", borderWidth: 1,
-        callbacks: { label: ctx => fews1Connected ? `${Math.round(ctx.parsed.y)}%` : "Offline — 0%" },
+        callbacks: { label: ctx => fews1Connected ? `${ctx.parsed.y}%` : "Offline" },
       },
     },
     scales: {
@@ -2389,7 +2408,8 @@ export default function App() {
       },
       x: {
         grid: { display: false },
-        ticks: { color: "#94a3b8", font: { size: 10 } },
+        ticks: { display: false },
+        offset: false,
       },
     },
     layout: { padding: { top: 4 } },
@@ -2565,7 +2585,7 @@ export default function App() {
                                   setCopiedId(null);
                                   copiedTimerRef.current = null;
                                 }, 1500);
-                              }} style={{ marginTop:"7px", padding:"3px 8px", background: copiedId===f.id?"#22c55e":markerColor, color:"#000", border:"none", outline:"none", boxShadow:"none", borderRadius:"4px", cursor:"pointer", fontWeight:"700", fontSize:"10px", width:"100%", transition:"background 0.2s" }}>
+                              }} style={{ marginTop:"7px", padding:"3px 8px", background: copiedId===f.id?"#38bdf8":markerColor, color:"#000", border:"none", outline:"none", boxShadow:"none", borderRadius:"4px", cursor:"pointer", fontWeight:"700", fontSize:"10px", width:"100%", transition:"background 0.2s" }}>
                                 {copiedId===f.id ? "Copied!" : "📋 Copy Coordinates"}
                               </button>
                             </div>
