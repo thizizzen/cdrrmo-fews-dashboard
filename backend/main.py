@@ -7,15 +7,38 @@ from typing import Optional
 from database import get_db, release_db, init_db
 from auth import hash_password, verify_password, create_token, decode_token
 
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
+# --- APP SETUP ---
+
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://cdrrmo-fews.onrender.com"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin"
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 VALID_ROLES = {"Admin", "Operator"}
 
@@ -137,15 +160,14 @@ class CreateLogRequest(BaseModel):
     message:   str
     user_name: Optional[str] = None
 
-# ── NEW: Siren control schema ─────────────────────────────────────────────────
 class SirenRequest(BaseModel):
     state: str  # "on" or "off"
-# ─────────────────────────────────────────────────────────────────────────────
 
 # --- AUTH ---
 
 @app.post("/login")
-def login(req: LoginRequest):
+@limiter.limit("10/minute")
+def login(request: Request, req: LoginRequest):
     conn = get_db()
     cur  = conn.cursor()
     try:
@@ -519,10 +541,10 @@ def update_unit(device_id: str, req: UpdateUnitRequest, user=Depends(get_current
         cur.close()
         release_db(conn)
 
-# ── NEW: Siren control endpoint ───────────────────────────────────────────────
+# --- SIREN CONTROL ---
+
 @app.post("/siren/{device_id}")
 def control_siren(device_id: str, req: SirenRequest, user=Depends(get_current_user)):
     from mqtt_bridge import publish_siren
     publish_siren(device_id, req.state)
     return {"ok": True}
-# ─────────────────────────────────────────────────────────────────────────────
