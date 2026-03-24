@@ -102,15 +102,6 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
-class SensorData(BaseModel):
-    device_id:      str
-    water_level_cm: float
-    battery_pct:    float
-    status:         str
-    latitude:       Optional[float] = None
-    longitude:      Optional[float] = None
-    is_immediate:   Optional[bool]  = False
-
 class CreateUserRequest(BaseModel):
     name:       str
     email:      str
@@ -205,7 +196,7 @@ def logout(user=Depends(get_current_user)):
     finally:
         cur.close()
         release_db(conn)
-        
+
 # --- PROFILE ---
 
 @app.put("/users/me")
@@ -317,23 +308,6 @@ def update_sms_enabled(user_id: int, req: SmsEnabledRequest, user=Depends(get_cu
         release_db(conn)
 
 # --- SENSOR DATA ---
-
-@app.post("/data/ingest")
-def ingest(data: SensorData):
-    conn = get_db()
-    cur  = conn.cursor()
-    try:
-        cur.execute("""
-            INSERT INTO sensor_readings
-                (device_id, water_level_cm, battery_pct, status, latitude, longitude, is_immediate)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (data.device_id, data.water_level_cm, data.battery_pct,
-              data.status, data.latitude, data.longitude, data.is_immediate))
-        conn.commit()
-        return {"ok": True}
-    finally:
-        cur.close()
-        release_db(conn)
 
 @app.get("/data/latest")
 def latest():

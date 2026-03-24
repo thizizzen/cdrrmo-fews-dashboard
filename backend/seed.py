@@ -1,11 +1,19 @@
-from database import get_db, init_db
+import os
+import sys
+from database import get_db, release_db, init_db
 from auth import hash_password
 
 ADMIN_NAME       = "John Doe"
 ADMIN_EMAIL      = "johndoe@cdrrmo.gov.ph"
-ADMIN_PASSWORD   = "cdrrmo2026"
 ADMIN_ROLE       = "Admin"
 ADMIN_DEPARTMENT = "Operations"
+
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD") or (
+    input("Enter admin password (min 6 chars): ").strip()
+    if sys.stdin.isatty() else None
+)
+if not ADMIN_PASSWORD or len(ADMIN_PASSWORD) < 6:
+    raise RuntimeError("ADMIN_PASSWORD must be at least 6 characters. Set it as an env var or enter it when prompted.")
 
 def seed():
     print("Initializing database tables...")
@@ -18,7 +26,7 @@ def seed():
     if cur.fetchone():
         print(f"Admin user '{ADMIN_EMAIL}' already exists. Skipping.")
         cur.close()
-        conn.close()
+        release_db(conn)
         return
 
     cur.execute("""
@@ -33,7 +41,6 @@ def seed():
     print(f"   ID:       {user_id}")
     print(f"   Name:     {ADMIN_NAME}")
     print(f"   Email:    {ADMIN_EMAIL}")
-    print(f"   Password: {ADMIN_PASSWORD}")
     print(f"   Role:     {ADMIN_ROLE}")
     print()
     print("⚠️  Remember to change the password after your first login!")
@@ -41,7 +48,7 @@ def seed():
     print("ℹ️  System roles: Admin (full access), Operator (Dashboard, Logs, Settings)")
 
     cur.close()
-    conn.close()
+    release_db(conn)
 
 if __name__ == "__main__":
     seed()
