@@ -20,7 +20,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://cdrrmo-fews.onrender.com"],
+    allow_origins=[
+        "https://cdrrmo-fews.vercel.app",
+        "https://cdrrmo-fews.onrender.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
