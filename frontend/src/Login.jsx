@@ -85,14 +85,26 @@ export default function Login({ onLogin }) {
             />
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-            <input
-              type="checkbox"
-              id="rememberMe"
-              checked={rememberMe}
-              onChange={e => setRememberMe(e.target.checked)}
-              style={{ width:14, height:14, accentColor:"var(--blue)", cursor:"pointer", flexShrink:0 }}
-            />
-            <label htmlFor="rememberMe" style={{ fontSize:12, color:"var(--text-3)", cursor:"pointer", userSelect:"none" }}>
+            <div
+              onClick={() => setRememberMe(r => !r)}
+              style={{
+                width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                border: `1.5px solid ${rememberMe ? "var(--blue)" : "rgba(255,255,255,0.15)"}`,
+                background: rememberMe ? "var(--blue)" : "transparent",
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s",
+              }}
+            >
+              {rememberMe && (
+                <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                  <path d="M1 3.5L3.5 6L8 1" stroke="#000" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
+            <label
+              onClick={() => setRememberMe(r => !r)}
+              style={{ fontSize:12, color:"var(--text-3)", cursor:"pointer", userSelect:"none" }}
+            >
               Remember me
             </label>
           </div>
