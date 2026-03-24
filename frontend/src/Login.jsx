@@ -3,10 +3,11 @@ import { useState } from "react";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export default function Login({ onLogin }) {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error,    setError]    = useState("");
-  const [loading,  setLoading]  = useState(false);
+  const [username,   setUsername]   = useState("");
+  const [password,   setPassword]   = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [error,      setError]      = useState("");
+  const [loading,    setLoading]    = useState(false);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -26,18 +27,20 @@ export default function Login({ onLogin }) {
         setError(data.detail || "Invalid credentials.");
         return;
       }
-      // Store token and user info in sessionStorage
-      sessionStorage.setItem("token", data.token);
-      sessionStorage.setItem("user", JSON.stringify({
+      const userData = JSON.stringify({
         id:         data.id,
         name:       data.username,
         email:      data.email,
         role:       data.role,
         department: data.department,
         initials:   data.username.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
-        photo:      data.photo || null,   // ← fixed: persist photo from server
+        photo:      data.photo || null,
         dob:        "",
-      }));
+      });
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem("token",      data.token);
+      storage.setItem("user",       userData);
+      storage.setItem("rememberMe", rememberMe ? "true" : "false");
       onLogin(data.role);
     } catch {
       setError("Could not connect to the server. Try again.");
@@ -80,6 +83,18 @@ export default function Login({ onLogin }) {
               onChange={e => setPassword(e.target.value)}
               onKeyDown={handleKey}
             />
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <input
+              type="checkbox"
+              id="rememberMe"
+              checked={rememberMe}
+              onChange={e => setRememberMe(e.target.checked)}
+              style={{ width:14, height:14, accentColor:"var(--blue)", cursor:"pointer", flexShrink:0 }}
+            />
+            <label htmlFor="rememberMe" style={{ fontSize:12, color:"var(--text-3)", cursor:"pointer", userSelect:"none" }}>
+              Remember me
+            </label>
           </div>
           {error && <div className="login-error">{error}</div>}
           <button

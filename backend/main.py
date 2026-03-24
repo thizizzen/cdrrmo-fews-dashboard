@@ -71,7 +71,23 @@ def get_current_user(authorization: str = Header(...)):
         if scheme.lower() != "bearer":
             raise HTTPException(status_code=401, detail="Invalid auth scheme")
         payload = decode_token(token)
+        user_id = int(payload["sub"])
+        token_version = payload.get("token_version", 0)
+        conn = get_db()
+        cur  = conn.cursor()
+        try:
+            cur.execute("SELECT token_version FROM users WHERE id = %s", (user_id,))
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=401, detail="User no longer exists")
+            if row["token_version"] != token_version:
+                raise HTTPException(status_code=401, detail="Session expired")
+        finally:
+            cur.close()
+            release_db(conn)
         return payload
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
@@ -149,7 +165,7 @@ def login(req: LoginRequest):
         user = cur.fetchone()
         if not user or not verify_password(req.password, user["password"]):
             raise HTTPException(status_code=401, detail="Invalid credentials")
-        token = create_token(user["id"], user["role"])
+        token = create_token(user["id"], user["role"], user["token_version"])
 
         cur.execute("""
             INSERT INTO system_logs (station, type, message, user_name)
@@ -174,6 +190,22 @@ def login(req: LoginRequest):
         cur.close()
         release_db(conn)
 
+@app.post("/logout")
+def logout(user=Depends(get_current_user)):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
+        user_id = int(user["sub"])
+        cur.execute(
+            "UPDATE users SET token_version = token_version + 1 WHERE id = %s",
+            (user_id,)
+        )
+        conn.commit()
+        return {"ok": True}
+    finally:
+        cur.close()
+        release_db(conn)
+        
 # --- PROFILE ---
 
 @app.put("/users/me")
@@ -239,7 +271,7 @@ def change_password(req: ChangePasswordRequest, user=Depends(get_current_user)):
         if len(req.new_password) < 6:
             raise HTTPException(status_code=400, detail="New password must be at least 6 characters.")
         cur.execute(
-            "UPDATE users SET password = %s WHERE id = %s RETURNING id",
+            "UPDATE users SET password = %s, token_version = token_version + 1 WHERE id = %s RETURNING id",
             (hash_password(req.new_password), user_id)
         )
         conn.commit()
@@ -449,6 +481,10 @@ def delete_user(user_id: int, admin=Depends(require_admin)):
     conn = get_db()
     cur  = conn.cursor()
     try:
+        cur.execute(
+            "UPDATE users SET token_version = token_version + 1 WHERE id = %s",
+            (user_id,)
+        )
         cur.execute("DELETE FROM users WHERE id = %s RETURNING id", (user_id,))
         conn.commit()
         if not cur.fetchone():

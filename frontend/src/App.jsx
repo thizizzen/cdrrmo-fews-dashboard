@@ -34,6 +34,23 @@ L.Icon.Default.mergeOptions({
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+// ─── STORAGE HELPERS ─────────────────────────────────────────────────────────
+function getStorage() {
+  return localStorage.getItem("rememberMe") === "true" ? localStorage : sessionStorage;
+}
+function getStoredToken() {
+  return localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+}
+function getStoredUser() {
+  return localStorage.getItem("user") || sessionStorage.getItem("user") || null;
+}
+function clearStoredSession() {
+  ["token", "user", "rememberMe"].forEach(k => {
+    localStorage.removeItem(k);
+    sessionStorage.removeItem(k);
+  });
+}
+
 // Central fetch wrapper — auto-logs out on 401 (expired JWT)
 let _onUnauthorized = null;
 function setUnauthorizedHandler(fn) { _onUnauthorized = fn; }
@@ -1871,8 +1888,8 @@ function SettingsPage({ userRole, userName, user, onUserUpdate, token, addLog })
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     try {
-      const tok    = sessionStorage.getItem("token");
-      const stored = sessionStorage.getItem("user");
+      const tok    = getStoredToken();
+      const stored = getStoredUser();
       if (!tok || !stored) return false;
       const parsed = JSON.parse(stored);
       return !!(parsed && typeof parsed.name === "string" && parsed.name && parsed.role);
@@ -1901,7 +1918,7 @@ export default function App() {
 
   const [user, setUser] = useState(() => {
     try {
-      const stored = sessionStorage.getItem("user");
+      const stored = getStoredUser();
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed && typeof parsed.name === "string" && typeof parsed.role === "string" && parsed.role) {
@@ -1912,7 +1929,7 @@ export default function App() {
     return normalizeUser({});
   });
 
-  const [token, setToken] = useState(() => sessionStorage.getItem("token") || "");
+  const [token, setToken] = useState(() => getStoredToken());
   const [sirens, setSirens] = useState(() => {
     try {
       const stored = sessionStorage.getItem("sirens");
@@ -1949,7 +1966,7 @@ export default function App() {
 
   const handleLogin = (role) => {
     try {
-      const stored = sessionStorage.getItem("user");
+      const stored = getStoredUser();
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed && typeof parsed.name === "string" && parsed.name && parsed.role) {
@@ -1957,7 +1974,7 @@ export default function App() {
         }
       }
     } catch {}
-    setToken(sessionStorage.getItem("token") || "");
+    setToken(getStoredToken());
     setIsLoggedIn(true);
     setActiveNav("Dashboard");
     sessionStorage.setItem("activeNav", "Dashboard");
@@ -1966,22 +1983,30 @@ export default function App() {
   const userRef = useRef(user);
   useEffect(() => { userRef.current = user; }, [user]);
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = useCallback(async () => {
     const currentUser = userRef.current;
-    const tok = sessionStorage.getItem("token");
-    if (tok && currentUser.name) {
-      fetch(`${API_BASE}/logs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
-        body: JSON.stringify({
-          station: "System", type: "system",
-          message: `${currentUser.name} (${currentUser.role}, ${currentUser.department}) has logged out of the system`,
-          user_name: currentUser.name,
-        }),
-      }).catch(() => {});
+    const tok = getStoredToken();
+    if (tok) {
+      try {
+        await fetch(`${API_BASE}/logout`, {
+          method:  "POST",
+          headers: { Authorization: `Bearer ${tok}` },
+        });
+      } catch {}
+      if (currentUser.name) {
+        fetch(`${API_BASE}/logs`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${tok}` },
+          body: JSON.stringify({
+            station:   "System",
+            type:      "system",
+            message:   `${currentUser.name} (${currentUser.role}, ${currentUser.department}) has logged out of the system`,
+            user_name: currentUser.name,
+          }),
+        }).catch(() => {});
+      }
     }
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("user");
+    clearStoredSession();
     sessionStorage.removeItem("fews1_offline_time");
     sessionStorage.removeItem("fews1_was_offline");
     sessionStorage.removeItem("fews1_initial_logged");
@@ -1992,12 +2017,44 @@ export default function App() {
     setUser(normalizeUser({}));
     setToken("");
     setShowLogoutModal(false);
+    setSelectedFEWS(null);
+    setSirens({ 1: false });
+    setFews1Live(null);
+    setFews1Connected(false);
+    setHistoryData({ positions: [], values: [], exactLabels: [] });
+    setHadDataBefore(false);
+    setLastUpdated(null);
+    setShowProfileDropdown(false);
+    setSidebarOpen(false);
+    setActiveNav("Dashboard");
   }, []);
 
   useEffect(() => {
     setUnauthorizedHandler(handleLogout);
     return () => setUnauthorizedHandler(null);
   }, [handleLogout]);
+
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === "token" && !e.newValue) {
+        setIsLoggedIn(false);
+        setUser(normalizeUser({}));
+        setToken("");
+        setSelectedFEWS(null);
+        setSirens({ 1: false });
+        setFews1Live(null);
+        setFews1Connected(false);
+        setHistoryData({ positions: [], values: [], exactLabels: [] });
+        setHadDataBefore(false);
+        setLastUpdated(null);
+        setShowProfileDropdown(false);
+        setSidebarOpen(false);
+        setActiveNav("Dashboard");
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   const mobileLogoutRef = useRef(null);
   mobileLogoutRef.current = () => setShowLogoutModal(true);
@@ -2579,7 +2636,7 @@ const waterChartOptions = useMemo(() => ({
                     onSave={u => {
                       const normalized = normalizeUser(u);
                       setUser(normalized);
-                      sessionStorage.setItem("user", JSON.stringify(normalized));
+                      getStorage().setItem("user", JSON.stringify(normalized));
                     }}
                     onClose={() => setShowProfileDropdown(false)}
                     addLog={addLog}
@@ -2779,7 +2836,7 @@ const waterChartOptions = useMemo(() => ({
           onUserUpdate={(u) => {
             const normalized = normalizeUser(u);
             setUser(normalized);
-            sessionStorage.setItem("user", JSON.stringify(normalized));
+            getStorage().setItem("user", JSON.stringify(normalized));
           }}
           token={token}
           addLog={addLog}

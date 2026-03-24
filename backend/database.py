@@ -133,17 +133,19 @@ def init_db():
     try:
         cur.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id         SERIAL PRIMARY KEY,
-                name       TEXT NOT NULL,
-                email      TEXT UNIQUE NOT NULL,
-                password   TEXT NOT NULL,
-                role       TEXT NOT NULL DEFAULT 'Viewer',
-                department TEXT NOT NULL DEFAULT 'Operations',
-                photo      TEXT,
-                created_at TIMESTAMP DEFAULT NOW()
+                id            SERIAL PRIMARY KEY,
+                name          TEXT NOT NULL,
+                email         TEXT UNIQUE NOT NULL,
+                password      TEXT NOT NULL,
+                role          TEXT NOT NULL DEFAULT 'Viewer',
+                department    TEXT NOT NULL DEFAULT 'Operations',
+                photo         TEXT,
+                token_version INTEGER NOT NULL DEFAULT 0,
+                created_at    TIMESTAMP DEFAULT NOW()
             )
         """)
         cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT")
+        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0")
         cur.execute("""
             CREATE TABLE IF NOT EXISTS sensor_readings (
                 id             SERIAL PRIMARY KEY,
