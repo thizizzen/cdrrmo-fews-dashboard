@@ -2312,10 +2312,12 @@ select.settings-input {
 
 .leaflet-tile-container img,
 .leaflet-tile img {
-  width: 256.5px !important;
-  height: 256.5px !important;
+  width: 257px !important;
+  height: 257px !important;
 }
-
+.leaflet-container {
+  background: #aad3df;
+}
 /* ── Hide mobile logout button on desktop ── */
 .pd-logout-mobile { display: none; }
 

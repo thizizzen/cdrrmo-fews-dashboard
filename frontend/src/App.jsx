@@ -2411,13 +2411,18 @@ const waterChartOptions = useMemo(() => ({
             const status = v > 300 ? "CRITICAL" : v > 200 ? "WARNING" : "SAFE";
             return ` ${v} cm  [${status}]`;
           },
+          labelColor: (ctx) => {
+            const v = ctx.parsed.y;
+            const color = v > 300 ? "#ef4444" : v > 200 ? "#f59e0b" : "#22c55e";
+            return { borderColor: color, backgroundColor: color };
+          },
         },
       },
       annotation: {
         annotations: {
-          zoneSafe:    { type: "box", yMin: 0,   yMax: 200, backgroundColor: "rgba(34,197,94,0.04)",  borderWidth: 0 },
-          zoneWarning: { type: "box", yMin: 200, yMax: 300, backgroundColor: "rgba(245,158,11,0.05)", borderWidth: 0 },
-          zoneCritical:{ type: "box", yMin: 300, yMax: 500, backgroundColor: "rgba(239,68,68,0.05)",  borderWidth: 0 },
+          zoneSafe:    { type: "box", yMin: 0,   yMax: 200, backgroundColor: "rgba(34,197,94,0.10)",  borderWidth: 0 },
+          zoneWarning: { type: "box", yMin: 200, yMax: 300, backgroundColor: "rgba(245,158,11,0.13)", borderWidth: 0 },
+          zoneCritical:{ type: "box", yMin: 300, yMax: 500, backgroundColor: "rgba(239,68,68,0.13)",  borderWidth: 0 },
           lineWarning: { type: "line", yMin: 200, yMax: 200, borderColor: "rgba(245,158,11,0.55)", borderWidth: 1, borderDash: [4, 4], label: { display: false } },
           lineCritical:{ type: "line", yMin: 300, yMax: 300, borderColor: "rgba(239,68,68,0.55)",  borderWidth: 1, borderDash: [4, 4], label: { display: false } },
         },
@@ -2475,10 +2480,12 @@ const waterChartOptions = useMemo(() => ({
         label: "FEWS 1",
         data: allFews.map(f => fews1Connected ? f.battery : 0),
         backgroundColor: fews1Connected ? "#38bdf8" : "rgba(255,255,255,0.10)",
-        borderColor: "#38bdf8",
+        borderColor: "transparent",
         borderWidth: 0,
-        borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
-        barThickness: 40,
+        borderSkipped: false,
+        borderRadius: { topLeft: 8, topRight: 8, bottomLeft: 0, bottomRight: 0 },
+        barPercentage: 0.9,
+        categoryPercentage: 1.0,
       }],
   }), [allFews, fews1Connected]);
 
@@ -2512,13 +2519,25 @@ const waterChartOptions = useMemo(() => ({
       tooltip: {
         backgroundColor: "#1e293b", titleColor: "#fff", bodyColor: "#94a3b8",
         borderColor: "#334155", borderWidth: 1,
-        callbacks: { label: ctx => fews1Connected ? `${ctx.parsed.y}%` : "Offline" },
+        callbacks: {
+          label: (ctx) => {
+            const v = ctx.parsed.y;
+            if (!fews1Connected) return " Offline";
+            const status = v >= 70 ? "GOOD" : v >= 40 ? "LOW" : "CRITICAL";
+            return ` ${v}%  [${status}]`;
+          },
+          labelColor: (ctx) => {
+            const v = ctx.parsed.y;
+            const color = v >= 70 ? "#22c55e" : v >= 40 ? "#f59e0b" : "#ef4444";
+            return { borderColor: color, backgroundColor: color };
+          },
+        },
       },
       annotation: {
         annotations: {
-          zoneGreen:  { type: "box", yMin: 70, yMax: 100, backgroundColor: "rgba(34,197,94,0.05)",  borderWidth: 0 },
-          zoneOrange: { type: "box", yMin: 40, yMax: 70,  backgroundColor: "rgba(245,158,11,0.05)", borderWidth: 0 },
-          zoneRed:    { type: "box", yMin: 0,  yMax: 40,  backgroundColor: "rgba(239,68,68,0.05)",  borderWidth: 0 },
+          zoneGreen:  { type: "box", yMin: 70, yMax: 100, backgroundColor: "rgba(34,197,94,0.10)",  borderWidth: 0 },
+          zoneOrange: { type: "box", yMin: 40, yMax: 70,  backgroundColor: "rgba(245,158,11,0.13)", borderWidth: 0 },
+          zoneRed:    { type: "box", yMin: 0,  yMax: 40,  backgroundColor: "rgba(239,68,68,0.13)",  borderWidth: 0 },
         },
       },
     },
@@ -2531,7 +2550,7 @@ const waterChartOptions = useMemo(() => ({
       x: {
         grid: { display: false },
         ticks: { display: false },
-        offset: false,
+        offset: true,
       },
     },
     layout: { padding: { top: 4 } },
