@@ -2484,8 +2484,8 @@ const waterChartOptions = useMemo(() => ({
         borderWidth: 0,
         borderSkipped: false,
         borderRadius: { topLeft: 8, topRight: 8, bottomLeft: 0, bottomRight: 0 },
-        barPercentage: 0.9,
-        categoryPercentage: 1.0,
+        barPercentage: 0.4,
+        categoryPercentage: 0.5,
       }],
   }), [allFews, fews1Connected]);
 

@@ -2310,14 +2310,14 @@ select.settings-input {
   }
 }
 
-.leaflet-tile-container img,
-.leaflet-tile img {
-  width: 257px !important;
-  height: 257px !important;
-}
 .leaflet-container {
   background: #aad3df;
 }
+.leaflet-tile {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
 /* ── Hide mobile logout button on desktop ── */
 .pd-logout-mobile { display: none; }
 
