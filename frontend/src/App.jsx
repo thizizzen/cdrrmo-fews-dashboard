@@ -1,5 +1,5 @@
 import "./App.css";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { Line, Bar } from "react-chartjs-2";
 import { createPortal } from "react-dom";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
@@ -33,6 +33,31 @@ L.Icon.Default.mergeOptions({
 });
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ height:"100vh", width:"100vw", background:"#080e1a", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:16, fontFamily:"sans-serif" }}>
+          <div style={{ fontSize:36 }}>⚠️</div>
+          <div style={{ color:"#e2e8f0", fontSize:18, fontWeight:700 }}>Something went wrong</div>
+          <div style={{ color:"#7e92b4", fontSize:12, maxWidth:400, textAlign:"center" }}>{this.state.error?.message || "An unexpected error occurred."}</div>
+          <button onClick={() => window.location.reload()} style={{ marginTop:8, padding:"10px 24px", background:"#38bdf8", color:"#000", border:"none", borderRadius:10, fontWeight:700, fontSize:14, cursor:"pointer" }}>
+            Reload Dashboard
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ─── STORAGE HELPERS ─────────────────────────────────────────────────────────
 function getStorage() {
@@ -911,7 +936,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
 
   useEffect(() => {
     authFetch(`${API_BASE}/units`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(rows => {
         if (!Array.isArray(rows)) return;
         setLoadError(false);
@@ -1406,7 +1431,7 @@ function LogsPage({ token, userRole }) {
 
     logsTimeoutId = setTimeout(scheduledFetch, 10000);
     return () => { if (logsTimeoutId) clearTimeout(logsTimeoutId); };
-  }, [fetchLogs, token, allowedTypes]);
+  }, [fetchLogs, token, userRole]);
 
   const allStations = useMemo(() => {
     const seen = new Set();
@@ -2535,6 +2560,7 @@ const waterChartOptions = useMemo(() => ({
   if (!isLoggedIn) return <Login onLogin={handleLogin} />;
 
   return (
+    <ErrorBoundary>
     <div className="app-shell">
       {showLogoutModal && (
         <ConfirmModal title="Logout" message="Are you sure you want to log out of the CDRRMO dashboard?"
@@ -2843,5 +2869,6 @@ const waterChartOptions = useMemo(() => ({
         />}
       </div>
     </div>
+    </ErrorBoundary>
   );
 }
