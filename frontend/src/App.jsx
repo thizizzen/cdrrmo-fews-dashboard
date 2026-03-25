@@ -2495,9 +2495,9 @@ const waterChartOptions = useMemo(() => ({
             : "rgba(255,255,255,0.10)"
         ),
         borderColor: "#38bdf8",
-        borderWidth: 1,
+        borderWidth: 3,
         borderRadius: 6,
-        barThickness: 28,
+        barThickness: 80,
       }],
   }), [allFews, fews1Connected]);
 
