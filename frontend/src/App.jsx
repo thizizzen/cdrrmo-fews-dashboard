@@ -2361,25 +2361,10 @@ export default function App() {
       pointHoverRadius: 6,
       borderWidth: 2,
       segment: {
-        borderColor: (ctx) => {
-          const v = ctx.p1.parsed.y;
-          if (v > 300) return "#ef4444";
-          if (v > 200) return "#f59e0b";
-          return "#38bdf8";
-        },
+        borderColor: () => "#38bdf8",
       },
-        pointBackgroundColor: (ctx) => {
-          const v = ctx.parsed?.y ?? 0;
-          if (v > 300) return "#ef4444";
-          if (v > 200) return "#f59e0b";
-          return "#38bdf8";
-        },
-        pointBorderColor: (ctx) => {
-          const v = ctx.parsed?.y ?? 0;
-          if (v > 300) return "#ef4444";
-          if (v > 200) return "#f59e0b";
-          return "#38bdf8";
-        },
+      pointBackgroundColor: () => "#38bdf8",
+      pointBorderColor: () => "#38bdf8",
     }],
   }), [chartPoints]);
 
@@ -2430,9 +2415,9 @@ const waterChartOptions = useMemo(() => ({
       },
       annotation: {
         annotations: {
-          zoneSafe:    { type: "box", yMin: 0,   yMax: 200, backgroundColor: "rgba(34,197,94,0.08)",  borderWidth: 0 },
-          zoneWarning: { type: "box", yMin: 200, yMax: 300, backgroundColor: "rgba(245,158,11,0.10)", borderWidth: 0 },
-          zoneCritical:{ type: "box", yMin: 300, yMax: 500, backgroundColor: "rgba(239,68,68,0.10)",  borderWidth: 0 },
+          zoneSafe:    { type: "box", yMin: 0,   yMax: 200, backgroundColor: "rgba(34,197,94,0.04)",  borderWidth: 0 },
+          zoneWarning: { type: "box", yMin: 200, yMax: 300, backgroundColor: "rgba(245,158,11,0.05)", borderWidth: 0 },
+          zoneCritical:{ type: "box", yMin: 300, yMax: 500, backgroundColor: "rgba(239,68,68,0.05)",  borderWidth: 0 },
           lineWarning: { type: "line", yMin: 200, yMax: 200, borderColor: "rgba(245,158,11,0.55)", borderWidth: 1, borderDash: [4, 4], label: { display: false } },
           lineCritical:{ type: "line", yMin: 300, yMax: 300, borderColor: "rgba(239,68,68,0.55)",  borderWidth: 1, borderDash: [4, 4], label: { display: false } },
         },
@@ -2489,15 +2474,11 @@ const waterChartOptions = useMemo(() => ({
       datasets: [{
         label: "FEWS 1",
         data: allFews.map(f => fews1Connected ? f.battery : 0),
-        backgroundColor: allFews.map(f =>
-          fews1Connected
-            ? (f.battery > 80 ? "#22c55e" : f.battery > 50 ? "#f59e0b" : "#ef4444")
-            : "rgba(255,255,255,0.10)"
-        ),
+        backgroundColor: fews1Connected ? "#38bdf8" : "rgba(255,255,255,0.10)",
         borderColor: "#38bdf8",
-        borderWidth: 1,
-        borderRadius: 6,
-        barThickness: 28,
+        borderWidth: 0,
+        borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
+        barThickness: 40,
       }],
   }), [allFews, fews1Connected]);
 
@@ -2532,6 +2513,13 @@ const waterChartOptions = useMemo(() => ({
         backgroundColor: "#1e293b", titleColor: "#fff", bodyColor: "#94a3b8",
         borderColor: "#334155", borderWidth: 1,
         callbacks: { label: ctx => fews1Connected ? `${ctx.parsed.y}%` : "Offline" },
+      },
+      annotation: {
+        annotations: {
+          zoneGreen:  { type: "box", yMin: 70, yMax: 100, backgroundColor: "rgba(34,197,94,0.05)",  borderWidth: 0 },
+          zoneOrange: { type: "box", yMin: 40, yMax: 70,  backgroundColor: "rgba(245,158,11,0.05)", borderWidth: 0 },
+          zoneRed:    { type: "box", yMin: 0,  yMax: 40,  backgroundColor: "rgba(239,68,68,0.05)",  borderWidth: 0 },
+        },
       },
     },
     scales: {

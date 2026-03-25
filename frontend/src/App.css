@@ -2310,6 +2310,12 @@ select.settings-input {
   }
 }
 
+.leaflet-tile-container img,
+.leaflet-tile img {
+  width: 256.5px !important;
+  height: 256.5px !important;
+}
+
 /* ── Hide mobile logout button on desktop ── */
 .pd-logout-mobile { display: none; }
 
