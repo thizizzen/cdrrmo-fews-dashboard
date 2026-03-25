@@ -1,8 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, Header
 from mqtt_bridge import start_bridge_thread
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional
 
 from database import get_db, release_db, init_db
 from auth import hash_password, verify_password, create_token, decode_token
@@ -16,6 +14,13 @@ from slowapi.errors import RateLimitExceeded
 
 import os, uuid, base64, re
 from supabase import create_client
+
+from models import (
+    LoginRequest, CreateUserRequest, UpdateUserRequest,
+    UpdateProfileRequest, ChangeEmailRequest, ChangePasswordRequest,
+    ChangePhoneRequest, SmsEnabledRequest, CreateLogRequest,
+    SirenRequest, UpdateUnitRequest,
+)
 
 SUPABASE_URL         = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
@@ -128,50 +133,6 @@ def require_admin(user=Depends(get_current_user)):
     if user.get("role") != "Admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
-
-# --- SCHEMAS ---
-
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-class CreateUserRequest(BaseModel):
-    name:       str
-    email:      str
-    password:   str
-    role:       str = "Operator"
-    department: str = "Operations"
-    phone:      Optional[str] = None
-
-class UpdateUserRequest(BaseModel):
-    role:       Optional[str] = None
-    department: Optional[str] = None
-
-class UpdateProfileRequest(BaseModel):
-    name:  Optional[str] = None
-    photo: Optional[str] = None  # now accepts base64 OR a supabase URL
-
-class ChangeEmailRequest(BaseModel):
-    email: str
-
-class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password:     str
-
-class ChangePhoneRequest(BaseModel):
-    phone: str
-
-class SmsEnabledRequest(BaseModel):
-    sms_enabled: bool
-
-class CreateLogRequest(BaseModel):
-    station:   str = "System"
-    type:      str = "system"
-    message:   str
-    user_name: Optional[str] = None
-
-class SirenRequest(BaseModel):
-    state: str  # "on" or "off"
 
 # --- AUTH ---
 
@@ -538,13 +499,6 @@ def root():
     return {"status": "CDRRMO FEWS API online"}
 
 # --- FEWS UNITS ---
-
-class UpdateUnitRequest(BaseModel):
-    installed_date:    Optional[str] = None
-    technician:        Optional[str] = None
-    description:       Optional[str] = None
-    threshold_warning: Optional[int] = None
-    threshold_danger:  Optional[int] = None
 
 @app.get("/units")
 def get_units(user=Depends(get_current_user)):
