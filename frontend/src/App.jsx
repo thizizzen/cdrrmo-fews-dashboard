@@ -2099,29 +2099,9 @@ export default function App() {
   }, []);
 
   const navItems = useMemo(() =>
-    ALL_NAV_ITEMS.filter(item => ROLE_ACCESS[user.role]?.includes(item.key)),
-    [user.role]
-  );
-  const isCritical = allFews.some(f => f.status === "danger");
-
-  const prevCriticalRef = useRef(false);
-  useEffect(() => {
-    if (isCritical && !prevCriticalRef.current) {
-      if (Notification.permission === "granted") {
-        new Notification("⚠ CDRRMO FEWS ALERT", {
-          body: "FEWS 1 has reached CRITICAL water level! Immediate action required.",
-          icon: "/cdrrmo-seal.png",
-        });
-      }
-    }
-    prevCriticalRef.current = isCritical;
-  }, [isCritical]);
-
-  useEffect(() => {
-    if (Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
+      ALL_NAV_ITEMS.filter(item => ROLE_ACCESS[user.role]?.includes(item.key)),
+      [user.role]
+    );
 
   const wasConnectedRef = useRef(null);
   const offlineTimeRef  = useRef(null);
@@ -2321,21 +2301,42 @@ export default function App() {
   }, []);
 
   const allFews = useMemo(() => {
-    let fews1 = { ...FEWS1_BASE };
-    if (fews1Live) {
-      fews1 = {
-        ...fews1,
-        waterLevel: fews1Live.water_level_cm,
-        status:     backendStatusToKey(fews1Live.status),
-        battery:    fews1Live.battery_pct,
-        lat:        fews1Live.latitude,
-        lng:        fews1Live.longitude,
-      };
-    }
-    return [fews1];
-  }, [fews1Live]);
+      let fews1 = { ...FEWS1_BASE };
+      if (fews1Live) {
+        fews1 = {
+          ...fews1,
+          waterLevel: fews1Live.water_level_cm,
+          status:     backendStatusToKey(fews1Live.status),
+          battery:    fews1Live.battery_pct,
+          lat:        fews1Live.latitude,
+          lng:        fews1Live.longitude,
+        };
+      }
+      return [fews1];
+    }, [fews1Live]);
 
-  const toggleSiren = async (id) => {
+    const isCritical = useMemo(() => allFews.some(f => f.status === "danger"), [allFews]);
+
+    const prevCriticalRef = useRef(false);
+    useEffect(() => {
+      if (isCritical && !prevCriticalRef.current) {
+        if (Notification.permission === "granted") {
+          new Notification("⚠ CDRRMO FEWS ALERT", {
+            body: "FEWS 1 has reached CRITICAL water level! Immediate action required.",
+            icon: "/cdrrmo-seal.png",
+          });
+        }
+      }
+      prevCriticalRef.current = isCritical;
+    }, [isCritical]);
+
+    useEffect(() => {
+      if (Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    }, []);
+
+    const toggleSiren = async (id) => {
     if (!can(user.role, "sirenControl")) return;
     const turningOn = !sirens[id];
     const deviceId = "fews" + id;
