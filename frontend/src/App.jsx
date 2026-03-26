@@ -2626,14 +2626,14 @@ const waterChartOptions = useMemo(() => ({
       <div className={`critical-banner ${isCritical ? "active" : ""}`}>
         <div className="critical-banner-inner">
           <div style={{ overflow: "hidden", flex: 1, display: "flex", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, animation: "marquee 18s linear infinite", whiteSpace: "nowrap" }}>
-              <span className="critical-banner-dot" />
-              ⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED
-              <span className="critical-banner-dot" />
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-              <span className="critical-banner-dot" />
-              ⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED
-              <span className="critical-banner-dot" />
+            <div style={{ display: "flex", alignItems: "center", gap: 0, animation: "marquee 22s linear infinite", whiteSpace: "nowrap" }}>
+              {[0,1,2,3].map(i => (
+                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 10, paddingRight: 60 }}>
+                  <span className="critical-banner-dot" />
+                  ⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED
+                  <span className="critical-banner-dot" />
+                </span>
+              ))}
             </div>
           </div>
         </div>
