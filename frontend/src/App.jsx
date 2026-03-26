@@ -2625,15 +2625,12 @@ const waterChartOptions = useMemo(() => ({
       {/* ─── CRITICAL BANNER ─── */}
       <div className={`critical-banner ${isCritical ? "active" : ""}`}>
         <div className="critical-banner-inner">
-          <div style={{ overflow: "hidden", flex: 1, display: "flex", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 0, animation: "marquee 22s linear infinite", whiteSpace: "nowrap" }}>
-              {[0,1,2,3].map(i => (
-                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 10, paddingRight: 60 }}>
-                  <span className="critical-banner-dot" />
-                  ⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED
-                  <span className="critical-banner-dot" />
-                </span>
-              ))}
+          <div className="marquee-track">
+            <div className="marquee-content">
+              ⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED &nbsp;&nbsp;⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED &nbsp;&nbsp;⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED &nbsp;&nbsp;⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED &nbsp;&nbsp;
+            </div>
+            <div className="marquee-content" aria-hidden="true">
+              ⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED &nbsp;&nbsp;⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED &nbsp;&nbsp;⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED &nbsp;&nbsp;⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED &nbsp;&nbsp;
             </div>
           </div>
         </div>

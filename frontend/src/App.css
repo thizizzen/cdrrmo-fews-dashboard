@@ -78,10 +78,9 @@ body {
   height: 38px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  overflow: hidden;
   background: rgba(239,68,68,0.75);
-  border-bottom: 2px solid rgba(200,30,30,0.6);
+  border-bottom: none;
   font-size: 11px;
   font-weight: 700;
   color: #fff;
@@ -91,12 +90,19 @@ body {
   animation: banner-pulse 1s ease-in-out infinite;
 }
 
-.critical-banner-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #fff;
+.marquee-track {
+  display: flex;
+  width: 100%;
+  overflow: hidden;
+}
+
+.marquee-content {
+  display: flex;
   flex-shrink: 0;
+  align-items: center;
+  white-space: nowrap;
+  animation: marquee-scroll 28s linear infinite;
+  padding-right: 0;
 }
 
 /* ================================
@@ -1351,9 +1357,9 @@ select.settings-input {
   50%       { background: rgba(239,68,68,0.45); }
 }
 
-@keyframes marquee {
+@keyframes marquee-scroll {
   0%   { transform: translateX(0%); }
-  100% { transform: translateX(-50%); }
+  100% { transform: translateX(-100%); }
 }
 
 @keyframes skeleton-pulse {
