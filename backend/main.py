@@ -396,7 +396,11 @@ def create_log(req: CreateLogRequest, user=Depends(get_current_user)):
         release_db(conn)
 
 @app.get("/logs")
-def get_logs(user=Depends(get_current_user)):
+def get_logs(
+    limit:   int = 200,
+    offset:  int = 0,
+    user=Depends(get_current_user)
+):
     conn = get_db()
     cur  = conn.cursor()
     try:
@@ -404,8 +408,8 @@ def get_logs(user=Depends(get_current_user)):
             SELECT id, station, type, message, user_name, timestamp
             FROM system_logs
             ORDER BY timestamp DESC
-            LIMIT 500
-        """)
+            LIMIT %s OFFSET %s
+        """, (min(limit, 500), offset))
         return cur.fetchall()
     finally:
         cur.close()
@@ -496,7 +500,7 @@ def delete_user(user_id: int, admin=Depends(require_admin)):
 
 @app.get("/")
 def root():
-    return {"status": "CDRRMO FEWS API online"}
+    return {"ok": True}
 
 # --- FEWS UNITS ---
 

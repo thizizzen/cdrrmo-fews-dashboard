@@ -2766,13 +2766,15 @@ const waterChartOptions = useMemo(() => ({
                     <span className="card-tag">
                       {hasEverHadData
                         ? (fews1Connected ? `${historyData.values.length} readings` : "Last known data")
-                        : "Waiting for data"}
+                        : fews1Connected ? "Loading…" : "Waiting for data"}
                     </span>
                 </div>
                   {hasEverHadData ? (
                     <div className="chart-wrap">
                       <Line data={waterChartData} options={waterChartOptions} />
                     </div>
+                  ) : fews1Connected ? (
+                    <div className="chart-wrap skeleton" />
                   ) : (
                     <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8 }}>
                       <div style={{ fontSize:24 }}>📡</div>
@@ -2782,15 +2784,19 @@ const waterChartOptions = useMemo(() => ({
                   )}
               </div>
 
-              {/* ─── BATTERY CHART ─── */}
+                {/* ─── BATTERY CHART ─── */}
                 <div className="card card-battery">
                 <div className="card-header">
                   <h2>Battery Level</h2>
                   <span className="card-tag">{fews1Connected ? "FEWS 1" : "Offline"}</span>
                 </div>
-                <div className="chart-wrap">
-                  <Bar data={batteryData} options={batteryOptions} />
-                </div>
+                {fews1Connected && !hasEverHadData ? (
+                  <div className="chart-wrap skeleton" />
+                ) : (
+                  <div className="chart-wrap">
+                    <Bar data={batteryData} options={batteryOptions} />
+                  </div>
+                )}
               </div>
             </main>
 

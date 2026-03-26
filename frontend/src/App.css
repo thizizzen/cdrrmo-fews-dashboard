@@ -1305,6 +1305,16 @@ select.settings-input {
   50%       { opacity: 0.3; }
 }
 
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.35; }
+  50%       { opacity: 0.7; }
+}
+.skeleton {
+  background: var(--bg-raised);
+  border-radius: 8px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
 /* ================================
    LOGS PAGE
 ================================ */
