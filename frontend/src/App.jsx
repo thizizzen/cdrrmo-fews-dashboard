@@ -2102,6 +2102,26 @@ export default function App() {
     ALL_NAV_ITEMS.filter(item => ROLE_ACCESS[user.role]?.includes(item.key)),
     [user.role]
   );
+  const isCritical = allFews.some(f => f.status === "danger");
+
+  const prevCriticalRef = useRef(false);
+  useEffect(() => {
+    if (isCritical && !prevCriticalRef.current) {
+      if (Notification.permission === "granted") {
+        new Notification("⚠ CDRRMO FEWS ALERT", {
+          body: "FEWS 1 has reached CRITICAL water level! Immediate action required.",
+          icon: "/cdrrmo-seal.png",
+        });
+      }
+    }
+    prevCriticalRef.current = isCritical;
+  }, [isCritical]);
+
+  useEffect(() => {
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const wasConnectedRef = useRef(null);
   const offlineTimeRef  = useRef(null);
@@ -2579,15 +2599,27 @@ const waterChartOptions = useMemo(() => ({
   if (!isLoggedIn) return <Login onLogin={handleLogin} />;
 
   return (
-    <ErrorBoundary>
-    <div className="app-shell">
-      {showLogoutModal && (
+      <ErrorBoundary>
+      <div className="app-shell" style={{ flexDirection: "column" }}>
+        {showLogoutModal && (
         <ConfirmModal title="Logout" message="Are you sure you want to log out of the CDRRMO dashboard?"
           confirmLabel="Yes, Logout" confirmColor="var(--red)"
           onConfirm={handleLogout}
           onCancel={() => setShowLogoutModal(false)}
           noSaved />
       )}
+
+      {/* ─── CRITICAL BANNER ─── */}
+      <div className={`critical-banner ${isCritical ? "active" : ""}`}>
+        <div className="critical-banner-inner">
+          <span className="critical-banner-dot" />
+          ⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED
+          <span className="critical-banner-dot" />
+        </div>
+      </div>
+
+      {/* ─── APP BODY ─── */}
+      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
 
       {/* ─── SIDEBAR ─── */}
       <aside className={`sidebar ${sidebarOpen ? "" : "collapsed"}`}>
@@ -2897,6 +2929,7 @@ const waterChartOptions = useMemo(() => ({
           token={token}
           addLog={addLog}
         />}
+      </div>
       </div>
     </div>
     </ErrorBoundary>
