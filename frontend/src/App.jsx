@@ -2394,8 +2394,20 @@ export default function App() {
       segment: {
         borderColor: () => "#38bdf8",
       },
-      pointBackgroundColor: () => "#38bdf8",
-      pointBorderColor: () => "#38bdf8",
+      pointBackgroundColor: (ctx) => {
+        const v = ctx.parsed?.y;
+        if (v == null) return "transparent";
+        if (v > 300) return "#ef4444";
+        if (v > 200) return "#f59e0b";
+        return "#22c55e";
+      },
+      pointBorderColor: (ctx) => {
+        const v = ctx.parsed?.y;
+        if (v == null) return "transparent";
+        if (v > 300) return "#ef4444";
+        if (v > 200) return "#f59e0b";
+        return "#22c55e";
+      },
     }],
   }), [chartPoints]);
 
@@ -2613,9 +2625,17 @@ const waterChartOptions = useMemo(() => ({
       {/* ─── CRITICAL BANNER ─── */}
       <div className={`critical-banner ${isCritical ? "active" : ""}`}>
         <div className="critical-banner-inner">
-          <span className="critical-banner-dot" />
-          ⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED
-          <span className="critical-banner-dot" />
+          <div style={{ overflow: "hidden", flex: 1, display: "flex", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, animation: "marquee 18s linear infinite", whiteSpace: "nowrap" }}>
+              <span className="critical-banner-dot" />
+              ⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED
+              <span className="critical-banner-dot" />
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              <span className="critical-banner-dot" />
+              ⚠ CRITICAL WATER LEVEL DETECTED — IMMEDIATE ACTION REQUIRED
+              <span className="critical-banner-dot" />
+            </div>
+          </div>
         </div>
       </div>
 
