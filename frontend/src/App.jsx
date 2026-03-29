@@ -25,7 +25,7 @@ ChartJS.register(
   annotationPlugin
 );
 
-delete L.Icon.Default.prototype._getIconUrl;
+try { delete L.Icon.Default.prototype._getIconUrl; } catch (e) {}
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: "/leaflet/marker-icon-2x.png",
     iconUrl:       "/leaflet/marker-icon.png",
