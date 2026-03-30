@@ -129,56 +129,5 @@ def init_db():
                 print("[DB] init_db giving up — DB unavailable at startup")
                 return
 
-    cur = conn.cursor()
-    try:
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id            SERIAL PRIMARY KEY,
-                name          TEXT NOT NULL,
-                email         TEXT UNIQUE NOT NULL,
-                password      TEXT NOT NULL,
-                role          TEXT NOT NULL DEFAULT 'Viewer',
-                department    TEXT NOT NULL DEFAULT 'Operations',
-                photo         TEXT,
-                token_version INTEGER NOT NULL DEFAULT 0,
-                created_at    TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS photo TEXT")
-        cur.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0")
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS sensor_readings (
-                id             SERIAL PRIMARY KEY,
-                device_id      TEXT NOT NULL,
-                water_level_cm REAL,
-                battery_pct    REAL,
-                status         TEXT,
-                latitude       REAL,
-                longitude      REAL,
-                is_immediate   BOOLEAN NOT NULL DEFAULT FALSE,
-                timestamp      TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        cur.execute("ALTER TABLE sensor_readings ADD COLUMN IF NOT EXISTS is_immediate BOOLEAN NOT NULL DEFAULT FALSE")
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS system_logs (
-                id        SERIAL PRIMARY KEY,
-                station   TEXT NOT NULL DEFAULT 'System',
-                type      TEXT NOT NULL DEFAULT 'system',
-                message   TEXT NOT NULL,
-                user_name TEXT,
-                timestamp TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_logs_ts ON system_logs (timestamp DESC)")
-        cur.execute("CREATE INDEX IF NOT EXISTS idx_readings_ts ON sensor_readings (device_id, timestamp DESC)")
-        cur.execute("ALTER TABLE system_logs ADD COLUMN IF NOT EXISTS user_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
-        cur.execute("ALTER TABLE fews_units ADD COLUMN IF NOT EXISTS siren_state BOOLEAN NOT NULL DEFAULT FALSE")
-        conn.commit()
-        print("[DB] Tables initialized successfully")
-    except Exception as e:
-        conn.rollback()
-        print(f"[DB] init_db error: {e}")
-    finally:
-        cur.close()
-        release_db(conn)
+    print("[DB] Tables initialized successfully")
+    release_db(conn)
