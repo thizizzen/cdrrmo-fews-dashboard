@@ -2425,6 +2425,7 @@ const waterChartOptions = useMemo(() => ({
           boxWidth: 8,
           boxHeight: 8,
           padding: 8,
+          textAlign: "center",
           generateLabels: () => [{
             text: "FEWS 1",
             fillStyle: "#38bdf8",
@@ -2486,6 +2487,7 @@ const waterChartOptions = useMemo(() => ({
           callback: (v) => `${v}cm`,
           stepSize: 100,
         },
+        afterFit: (axis) => { axis.width = 45; },
       },
       x: {
         type: "linear",
@@ -2548,6 +2550,7 @@ const waterChartOptions = useMemo(() => ({
           boxWidth: 8,
           boxHeight: 8,
           padding: 8,
+          textAlign: "center",
           generateLabels: () => [{
             text: "FEWS 1",
             fillStyle: "#38bdf8",
@@ -2591,6 +2594,7 @@ const waterChartOptions = useMemo(() => ({
         min: 0, max: 100,
         grid: { color: "rgba(255,255,255,0.05)" },
         ticks: { color: "#64748b", font: { size: 9 }, callback: v => `${v}%` },
+        afterFit: (axis) => { axis.width = 45; },
       },
       x: {
         grid: { display: false },
