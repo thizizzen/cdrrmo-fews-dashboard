@@ -2601,7 +2601,7 @@ const waterChartOptions = useMemo(() => ({
     layout: { padding: { top: 4 } },
   }), [fews1Connected]);
 
-  const alertCount      = allFews.filter(f => f.status !== "safe").length;
+  const alertCount      = allFews.filter(f => f.status === "danger").length;
   const selectedStation = allFews.find(f => f.id === selectedFEWS) || null;
   const pageInfo        = PAGE_TITLES[activeNav];
 
@@ -2815,7 +2815,7 @@ const waterChartOptions = useMemo(() => ({
                   <h2>Water Level</h2>
                     <span className="card-tag">
                       {hasEverHadData
-                        ? (fews1Connected ? `${historyData.values.length} readings` : "Last known data")
+                        ? (fews1Connected ? "Last 60 min" : "Last known data")
                         : fews1Connected ? "Loading…" : "Waiting for data"}
                     </span>
                 </div>
