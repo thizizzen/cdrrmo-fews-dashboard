@@ -51,9 +51,10 @@ def send_sms_to_all():
     except Exception as e:
         print(f"[SMS] send_sms_to_all failed entirely: {e}")
 
-MQTT_BROKER = "broker.emqx.io"
-MQTT_PORT   = 1883
-MQTT_TOPIC  = "cdrrmo/fews1/data"
+MQTT_BROKER        = "broker.emqx.io"
+MQTT_PORT          = 1883
+MQTT_TOPIC         = "cdrrmo/fews1/data"
+MQTT_STATUS_TOPIC  = "cdrrmo/fews1/status"
 
 def water_level_to_type(water_level_cm):
     if water_level_cm is None:
@@ -80,13 +81,37 @@ def on_connect(client, userdata, flags, rc):
         print("[BRIDGE] Connected to broker")
         result, mid = client.subscribe(MQTT_TOPIC, qos=0)
         print(f"[BRIDGE] Subscribed to {MQTT_TOPIC} result={result} mid={mid}")
+        result2, mid2 = client.subscribe(MQTT_STATUS_TOPIC, qos=0)
+        print(f"[BRIDGE] Subscribed to {MQTT_STATUS_TOPIC} result={result2} mid={mid2}")
     else:
         print(f"[BRIDGE] Connection failed rc={rc}")
 
 def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode())
-        print(f"[BRIDGE] Received: {data}")
+        print(f"[BRIDGE] Received on {msg.topic}: {data}")
+
+        # ── Handle startup status message ─────────────────────────────────
+        if msg.topic == MQTT_STATUS_TOPIC:
+            if data.get("online") and data.get("station_id"):
+                conn = get_db()
+                cur  = conn.cursor()
+                try:
+                    cur.execute("""
+                        INSERT INTO system_logs (station, type, message, user_name)
+                        VALUES (%s, %s, %s, %s)
+                    """, (
+                        "FEWS 1",
+                        "system",
+                        "FEWS 1 is online and transmitting data",
+                        "System",
+                    ))
+                    conn.commit()
+                    print("[BRIDGE] Startup status logged")
+                finally:
+                    cur.close()
+                    release_db(conn)
+            return
 
         station_id     = data.get("station_id")
         water_level_cm = data.get("water_level_cm")

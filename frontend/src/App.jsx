@@ -2153,13 +2153,8 @@ export default function App() {
       sessionStorage.removeItem("fews1_offline_time");
       sessionStorage.removeItem("fews1_was_offline");
     } else if (wasConnectedRef.current === null) {
-      if (!sessionStorage.getItem("fews1_initial_logged")) {
-        addLog({
-          station: "FEWS 1", type: "system",
-          message: `FEWS 1 is online and transmitting data`,
-        });
-        sessionStorage.setItem("fews1_initial_logged", "true");
-      }
+      // Startup log is now handled by backend on receipt of cdrrmo/fews1/status
+      sessionStorage.setItem("fews1_initial_logged", "true");
     }
 
     wasConnectedRef.current = true;
