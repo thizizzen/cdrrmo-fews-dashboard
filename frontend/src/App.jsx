@@ -1311,14 +1311,11 @@ function ProfileDropdown({ user, token, onSave, onClose, addLog }) {
 // ─── UNIT CONTROL PAGE ────────────────────────────────────────────────────────
 function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, token }) {
   const [fewsData, setFewsData]           = useState(allFews.map(f => ({ ...f })));
-  const [units, setUnits]                 = useState(Object.fromEntries(allFews.map(f => ([f.id, fews1Connected && f.isLive ? true : false]))));
   const [thresholds, setThr]              = useState(Object.fromEntries(allFews.map(f => [f.id, { warning: 200, danger: 300 }])));
   const [prevThresholds, setPrevThr]      = useState(Object.fromEntries(allFews.map(f => [f.id, { warning: 200, danger: 300 }])));
   const [thrSaving, setThrSaving]         = useState({});
   const [editing, setEditing]             = useState({});
   const [infoSaving, setInfoSaving]       = useState({});
-  const [pendingToggle, setPendingToggle] = useState(null);
-  const [powerSaving, setPowerSaving]     = useState({});
   const [loadError, setLoadError]         = useState(false);
   const [thrError, setThrError]           = useState({});
   const [infoError, setInfoError]         = useState({});
@@ -1364,25 +1361,6 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
   }, [token]);
 
   const getDeviceId = (id) => "fews" + id;
-
-  const requestToggle = (f) => {
-    if (!canControl) return;
-    setPendingToggle({ fews: f, turningOn: !units[f.id] });
-  };
-
-  const confirmToggle = () => {
-    const { fews, turningOn } = pendingToggle;
-    setPendingToggle(null);
-    setPowerSaving(p => ({ ...p, [fews.id]: true }));
-    setTimeout(() => {
-      setUnits(prev => ({ ...prev, [fews.id]: !prev[fews.id] }));
-      setPowerSaving(p => ({ ...p, [fews.id]: false }));
-      addLog({
-        station: fews.name, type: "system",
-        message: `${fews.name} (${fews.location}) has been powered ${turningOn ? "ON" : "OFF"} by ${userName}`,
-      });
-    }, 700);
-  };
 
   const saveThr = async (id) => {
     if (!canControl) return;
@@ -1450,21 +1428,6 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
 
   return (
     <>
-      {pendingToggle && (
-        <ConfirmModal
-          icon="↻"
-          iconColor={pendingToggle.turningOn ? "var(--green)" : "var(--red)"}
-          title={`${pendingToggle.turningOn ? "Power On" : "Power Off"} ${pendingToggle.fews.name}?`}
-          message={pendingToggle.turningOn
-            ? `${pendingToggle.fews.name} - ${pendingToggle.fews.location} will resume monitoring and data transmission.`
-            : `${pendingToggle.fews.name} - ${pendingToggle.fews.location} will stop all monitoring.`
-          }
-          confirmLabel={pendingToggle.turningOn ? "Yes, Power On" : "Yes, Power Off"}
-          confirmColor={pendingToggle.turningOn ? "var(--green)" : "var(--red)"}
-          onConfirm={confirmToggle}
-          onCancel={() => setPendingToggle(null)}
-        />
-      )}
       <div className="page-body">
         {loadError && (
           <div style={{ background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:10, padding:"12px 16px", color:"var(--red)", fontSize:12, fontWeight:600 }}>
@@ -1473,15 +1436,14 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
         )}
         {fewsData.map(f => {
           const cfg = STATUS_CONFIG[f.status] || STATUS_CONFIG["safe"];
-          const on  = units[f.id] && (f.isLive ? fews1Connected : true);
           const thr = thresholds[f.id];
           const ed  = editing[f.id];
           const isActuallyLive = f.isLive && fews1Connected;
           return (
-            <div key={f.id} className={`uc-card ${!on ? "uc-card-offline" : ""}`} style={{ "--status-color": cfg.color }}>
+            <div key={f.id} className={`uc-card ${!isActuallyLive ? "uc-card-offline" : ""}`} style={{ "--status-color": cfg.color }}>
               <div className="uc-card-header">
                 <div className="uc-card-left">
-                  <div className="uc-status-dot" style={{ background: on ? cfg.color : "#334155" }} />
+                  <div className="uc-status-dot" style={{ background: isActuallyLive ? cfg.color : "#334155" }} />
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <div className="uc-card-name">{f.name}</div>
@@ -1501,14 +1463,17 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
                   </div>
                 </div>
                 <div className="uc-card-right">
-                  <div className="uc-badge" style={{ color: on ? cfg.color : "var(--text-3)", background: on ? cfg.bg : "rgba(255,255,255,0.04)" }}>
-                    {on ? cfg.label : "OFFLINE"}
+                  <div className="uc-badge" style={{ color: isActuallyLive ? cfg.color : "var(--text-3)", background: isActuallyLive ? cfg.bg : "rgba(255,255,255,0.04)" }}>
+                    {isActuallyLive ? cfg.label : "OFFLINE"}
                   </div>
-                  {canControl && (
-                    <button className={`uc-power-btn ${on ? "uc-power-on" : "uc-power-off"}`} onClick={() => !powerSaving[f.id] && requestToggle(f)} title={on ? "Power Off" : "Power On"}>
-                      {powerSaving[f.id] ? <span className="btn-spinner" style={{ width:12, height:12, borderWidth:2 }} /> : "↻"}
-                    </button>
-                  )}
+                  <button
+                    className={`uc-power-btn ${isActuallyLive ? "uc-power-on" : "uc-power-off"}`}
+                    style={{ cursor: "default", pointerEvents: "none" }}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  >
+                    ↻
+                  </button>
                 </div>
               </div>
 
