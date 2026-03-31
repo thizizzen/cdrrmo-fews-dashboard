@@ -229,12 +229,316 @@ const LOG_TYPES_BY_ROLE = {
   Operator: ["info", "warning", "danger"],
 };
 
-const ROWS_PER_PAGE = 15;
+const ROWS_PER_PAGE = 30;
+
+function ExportMenu({ token, activeFilters, exporting, setExporting }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const buildFilterSummary = () => {
+    const parts = [];
+    if (activeFilters.search)          parts.push(`Search: "${activeFilters.search}"`);
+    if (activeFilters.station !== "All") parts.push(`Station: ${activeFilters.station}`);
+    if (activeFilters.type    !== "All") parts.push(`Type: ${activeFilters.type}`);
+    if (activeFilters.dateFrom)          parts.push(`From: ${activeFilters.dateFrom}`);
+    if (activeFilters.dateTo)            parts.push(`To: ${activeFilters.dateTo}`);
+    return parts.length ? parts.join("  ·  ") : "None";
+  };
+
+  const handleExport = async (format) => {
+    setOpen(false);
+    setExporting(format);
+    try {
+      const params = new URLSearchParams();
+      if (activeFilters.search)            params.set("search",    activeFilters.search);
+      if (activeFilters.station !== "All") params.set("station",   activeFilters.station);
+      if (activeFilters.type    !== "All") params.set("type",      activeFilters.type);
+      if (activeFilters.dateFrom)          params.set("date_from", activeFilters.dateFrom);
+      if (activeFilters.dateTo)            params.set("date_to",   activeFilters.dateTo);
+
+      const res  = await authFetch(`${API_BASE}/logs/export?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!Array.isArray(data)) return;
+      const rows = data.map(parseLog);
+      const summary = buildFilterSummary();
+      if (format === "xlsx") exportToXLSX(rows, summary);
+      else                   exportToPDF(rows, summary);
+    } catch (e) {
+      console.error("Export failed", e);
+    } finally {
+      setTimeout(() => setExporting(null), 1200);
+    }
+  };
+
+  return (
+    <div className="export-menu-wrap" ref={ref} style={{ alignSelf: "flex-end" }}>
+      <button className="export-menu-trigger" onClick={() => setOpen(o => !o)} disabled={!!exporting}>
+        {exporting ? <span style={{ fontFamily: "var(--mono)", fontSize: 10 }}>⏳</span> : (
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M7.5 1v9M4 7l3.5 3.5L11 7M2 13h11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+      </button>
+      {open && (
+        <div className="export-menu-dropdown">
+          {[{ fmt:"xlsx", icon:"📊", label:"Excel (.xlsx)", color:"#22c55e" }, { fmt:"pdf", icon:"📄", label:"PDF (.pdf)", color:"#ef4444" }]
+            .map(({ fmt, icon, label, color }) => (
+              <button key={fmt} className="export-menu-item" onClick={() => handleExport(fmt)}>
+                <span className="export-menu-item-icon" style={{ color }}>{icon}</span>
+                <span className="export-menu-item-label">{label}</span>
+              </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LogsPage({ token, userRole }) {
+  const allowedTypes = LOG_TYPES_BY_ROLE[userRole] || LOG_TYPES_BY_ROLE["Operator"];
+
+  const [rows,       setRows]       = useState([]);
+  const [counts,     setCounts]     = useState({ info:0, warning:0, danger:0, system:0, total:0 });
+  const [loading,    setLoading]    = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [page,       setPage]       = useState(1);
+  const [exporting,  setExporting]  = useState(null);
+
+  const [search,          setSearch]          = useState("");
+  const [filterStation,   setFilterStation]   = useState("All");
+  const [filterType,      setFilterType]      = useState("All");
+  const [filterDateRange, setFilterDateRange] = useState({ from: "", to: "" });
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce search 400ms
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setPage(1); }, [debouncedSearch, filterStation, filterType, filterDateRange]);
+
+  const fetchLogs = useCallback(async (silent = false) => {
+    if (!token) return;
+    if (!silent) setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        limit:  ROWS_PER_PAGE,
+        offset: (page - 1) * ROWS_PER_PAGE,
+      });
+      if (debouncedSearch)            params.set("search",    debouncedSearch);
+      if (filterStation !== "All")    params.set("station",   filterStation);
+      if (filterType    !== "All")    params.set("type",      filterType);
+      if (filterDateRange.from)       params.set("date_from", filterDateRange.from);
+      if (filterDateRange.to)         params.set("date_to",   filterDateRange.to);
+
+      const res  = await authFetch(`${API_BASE}/logs?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data?.rows) {
+        // Filter rows to only allowed types for this role
+        const parsed = data.rows
+          .map(parseLog)
+          .filter(l => allowedTypes.includes(l.type));
+        setRows(parsed);
+        // Filter counts to only allowed types
+        const filteredCounts = { ...data.counts };
+        let total = 0;
+        allowedTypes.forEach(t => { total += filteredCounts[t] || 0; });
+        filteredCounts.total = total;
+        setCounts(filteredCounts);
+        setFetchError(false);
+      }
+    } catch (e) {
+      if (e?.message !== "Unauthorized") setFetchError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [token, page, debouncedSearch, filterStation, filterType, filterDateRange, userRole]);
+
+  // Initial + filter/page change fetch
+  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+
+  // Auto-refresh every 30s (silent — no loading spinner)
+  useEffect(() => {
+    const id = setInterval(() => fetchLogs(true), 30000);
+    return () => clearInterval(id);
+  }, [fetchLogs]);
+
+  const totalPages = Math.max(1, Math.ceil(counts.total / ROWS_PER_PAGE));
+  const safePage   = Math.min(page, totalPages);
+
+  const stationOptions = [
+    { value: "All",    label: "All Stations" },
+    { value: "System", label: "System"       },
+    { value: "FEWS 1", label: "FEWS 1"       },
+  ];
+
+  const typeOptions = [
+    { value: "All", label: "All Types" },
+    ...allowedTypes.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })),
+  ];
+
+  const hasFilters = debouncedSearch || filterStation !== "All" || filterType !== "All" || filterDateRange.from || filterDateRange.to;
+
+  const activeFilters = {
+    search:    debouncedSearch,
+    station:   filterStation,
+    type:      filterType,
+    dateFrom:  filterDateRange.from,
+    dateTo:    filterDateRange.to,
+  };
+
+  return (
+    <div className="page-body logs-page-body">
+      <div className="page-card" style={{ gap: 12 }}>
+        <div className="logs-filters-row">
+          <div className="logs-search-wrap">
+            <span className="logs-search-icon">🔍</span>
+            <input
+              className="logs-search-input"
+              placeholder="Search logs…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {search && (
+              <button className="logs-search-clear" onClick={() => setSearch("")}>✕</button>
+            )}
+          </div>
+          <FilterDropdown label="All Stations" options={stationOptions} value={filterStation} onChange={v => setFilterStation(v)} />
+          <FilterDropdown label="All Types"    options={typeOptions}    value={filterType}    onChange={v => setFilterType(v)}    />
+          <DateRangeFilter
+            from={filterDateRange.from}
+            to={filterDateRange.to}
+            onChange={v => setFilterDateRange(v)}
+          />
+          {hasFilters && (
+            <button className="logs-reset-icon-btn" onClick={() => {
+              setSearch("");
+              setFilterStation("All");
+              setFilterType("All");
+              setFilterDateRange({ from: "", to: "" });
+            }} title="Reset">↺</button>
+          )}
+          <ExportMenu
+            token={token}
+            activeFilters={activeFilters}
+            exporting={exporting}
+            setExporting={setExporting}
+          />
+        </div>
+        <div className="logs-stat-bar">
+          {allowedTypes.map(t => {
+            const cfg = LOG_TYPE_CFG[t];
+            return (
+              <div key={t} className="logs-stat-item">
+                <span className="logs-stat-count" style={{ color: cfg.color }}>{counts[t] ?? 0}</span>
+                <span className="logs-stat-label">{cfg.label}</span>
+              </div>
+            );
+          })}
+          <div className="logs-stat-divider" />
+          <div className="logs-stat-item logs-stat-total">
+            <span className="logs-stat-count">{counts.total}</span>
+            <span className="logs-stat-label">TOTAL</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="page-card logs-table-card" style={{ gap:0, padding:0, overflow:"hidden", flex:1, minHeight:0 }}>
+        <div className="logs-table-head">
+          <span className="logs-col-date">Date &amp; Time</span>
+          <span className="logs-col-station">Station</span>
+          <span className="logs-col-type">Type</span>
+          <span className="logs-col-msg">Message</span>
+        </div>
+        <div className="logs-table-body">
+          {loading ? (
+            <div className="logs-empty">
+              <div style={{ fontSize:24, marginBottom:8 }}>⏳</div>
+              <div style={{ color:"var(--text-2)", fontWeight:600 }}>Loading logs…</div>
+            </div>
+          ) : fetchError ? (
+            <div className="logs-empty">
+              <div style={{ fontSize:28, marginBottom:8 }}>⚠️</div>
+              <div style={{ color:"var(--red)", fontWeight:600 }}>Failed to load logs</div>
+              <div style={{ color:"var(--text-3)", fontSize:11, marginTop:4 }}>Check your connection and try refreshing</div>
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="logs-empty">
+              <div style={{ fontSize:28, marginBottom:8 }}>🔍</div>
+              <div style={{ color:"var(--text-2)", fontWeight:600 }}>No logs match your filters</div>
+            </div>
+          ) : rows.map((l, i) => {
+            const cfg = LOG_TYPE_CFG[l.type] || LOG_TYPE_CFG["system"];
+            return (
+              <div key={l.id} className={`logs-row ${i % 2 === 1 ? "logs-row-alt" : ""}`}>
+                <span className="logs-col-date">
+                  <span className="logs-date-day">{l.date}</span>
+                  <span className="logs-date-time">{l.time}</span>
+                </span>
+                <span className="logs-col-station">
+                  <span className="logs-station-tag">{l.station.toUpperCase()}</span>
+                </span>
+                <span className="logs-col-type">
+                  <span className="logs-type-badge" style={{ color:cfg.color, background:cfg.bg, border:`1px solid ${cfg.color}30` }}>
+                    {cfg.label}
+                  </span>
+                </span>
+                <span className="logs-col-msg" style={{ color: l.type==="danger"?"var(--red)":l.type==="warning"?"var(--amber)":"var(--text-2)" }}>
+                  {l.msg}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="logs-pagination">
+          <span className="logs-page-info">
+            Showing {counts.total === 0 ? 0 : (safePage - 1) * ROWS_PER_PAGE + 1}–{Math.min(safePage * ROWS_PER_PAGE, counts.total)} of {counts.total} entries
+          </span>
+          <div className="logs-page-btns">
+            <button className="logs-page-btn" disabled={safePage === 1}          onClick={() => setPage(1)}>«</button>
+            <button className="logs-page-btn" disabled={safePage === 1}          onClick={() => setPage(p => p - 1)}>‹</button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(p => p === 1 || p === totalPages || Math.abs(p - safePage) <= 1)
+              .reduce((acc, p, i, arr) => {
+                if (i > 0 && p - arr[i - 1] > 1) acc.push("…");
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((p, i) => p === "…"
+                ? <span key={"el" + i} className="logs-page-ellipsis">…</span>
+                : <button key={p} className={`logs-page-btn ${p === safePage ? "logs-page-active" : ""}`} onClick={() => setPage(p)}>{p}</button>
+              )}
+            <button className="logs-page-btn" disabled={safePage === totalPages} onClick={() => setPage(p => p + 1)}>›</button>
+            <button className="logs-page-btn" disabled={safePage === totalPages} onClick={() => setPage(totalPages)}>»</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── EXPORT HELPERS ───────────────────────────────────────────────────────────
-function exportToXLSX(rows) {
+function exportToXLSX(rows, filterSummary = "") {
   const header = ["Date", "Time", "Station", "Type", "Message"];
-  const data   = [header, ...rows.map(r => [r.date, r.time, r.station, r.type.toUpperCase(), r.msg])];
+  const meta   = [
+    ["CDRRMO – FEWS Incident Log Report"],
+    [`Generated: ${new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" })}`],
+    [`Filters: ${filterSummary || "None"}`],
+    [`Total Records: ${rows.length}`],
+    [],
+  ];
+  const data = [...meta, header, ...rows.map(r => [r.date, r.time, r.station, r.type.toUpperCase(), r.msg])];
   const doIt = () => {
     const wb = window.XLSX.utils.book_new();
     const ws = window.XLSX.utils.aoa_to_sheet(data);
@@ -249,7 +553,7 @@ function exportToXLSX(rows) {
   document.head.appendChild(s);
 }
 
-function exportToPDF(rows) {
+function exportToPDF(rows, filterSummary = "") {
   const load = (src) => new Promise((res, rej) => {
     if (document.querySelector(`script[src="${src}"]`)) { res(); return; }
     const s = document.createElement("script");
@@ -259,26 +563,113 @@ function exportToPDF(rows) {
   const doIt = () => {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-    doc.setFontSize(14);
-    doc.setTextColor(30, 41, 59);
-    doc.text("CDRRMO — FEWS System Logs", 40, 40);
-    doc.setFontSize(9);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Exported: ${new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" })}  ·  ${rows.length} entries`, 40, 56);
-    doc.autoTable({
-      startY: 70,
-      head: [["Date", "Time", "Station", "Type", "Message"]],
-      body: rows.map(r => [r.date, r.time, r.station, r.type.toUpperCase(), r.msg]),
-      styles: { fontSize: 8, cellPadding: 5 },
-      headStyles: { fillColor: [17, 29, 53], textColor: [226, 232, 240], fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [245, 248, 252] },
-      columnStyles: {
-        0: { cellWidth: 80 }, 1: { cellWidth: 65 },
-        2: { cellWidth: 55 }, 3: { cellWidth: 55 }, 4: { cellWidth: "auto" },
-      },
-      theme: "grid",
-    });
-    doc.save(`FEWS_Logs_${Date.now()}.pdf`);
+    const pageW = doc.internal.pageSize.getWidth();
+
+    // --- Header background ---
+    doc.setFillColor(8, 14, 26);
+    doc.rect(0, 0, pageW, 80, "F");
+
+    // --- Load and draw CDRRMO seal ---
+    const sealImg = new Image();
+    sealImg.src = "/cdrrmo-seal.png";
+    sealImg.onload = () => {
+      doc.addImage(sealImg, "PNG", 20, 8, 56, 56);
+
+      const batImg = new Image();
+      batImg.src = "/batscity-seal.png";
+      batImg.onload = () => {
+        doc.addImage(batImg, "PNG", 84, 10, 52, 52);
+
+        // --- Title block ---
+        doc.setFontSize(16);
+        doc.setTextColor(226, 232, 240);
+        doc.setFont("helvetica", "bold");
+        doc.text("CDRRMO – FEWS Incident Log Report", 150, 32);
+
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(126, 146, 180);
+        doc.text("City Disaster Risk Reduction and Management Office · Batangas City", 150, 46);
+
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Filters: ${filterSummary || "None"}`, 150, 59);
+        doc.text(`Generated: ${new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" })}  ·  ${rows.length} records`, 150, 70);
+
+        // --- Table ---
+        doc.autoTable({
+          startY: 92,
+          head: [["Date", "Time", "Station", "Type", "Message"]],
+          body: rows.map(r => [r.date, r.time, r.station, r.type.toUpperCase(), r.msg]),
+          styles: { fontSize: 8, cellPadding: 5 },
+          headStyles: { fillColor: [17, 29, 53], textColor: [226, 232, 240], fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [245, 248, 252] },
+          columnStyles: {
+            0: { cellWidth: 80 }, 1: { cellWidth: 65 },
+            2: { cellWidth: 55 }, 3: { cellWidth: 55 }, 4: { cellWidth: "auto" },
+          },
+          theme: "grid",
+          didDrawPage: (hookData) => {
+            // Footer on every page
+            const pg    = hookData.pageNumber;
+            const total = doc.internal.getNumberOfPages();
+            doc.setFontSize(7);
+            doc.setTextColor(148, 163, 184);
+            doc.text(
+              `CDRRMO FEWS · Batangas City · Page ${pg} of ${total}`,
+              pageW / 2, doc.internal.pageSize.getHeight() - 10,
+              { align: "center" }
+            );
+          },
+        });
+
+        doc.save(`FEWS_Logs_${Date.now()}.pdf`);
+      };
+      batImg.onerror = () => {
+        // Continue without batscity seal
+        finalizePDF(doc, rows, filterSummary, pageW, 150);
+      };
+    };
+    sealImg.onerror = () => {
+      // Continue without any seal
+      doc.setFontSize(16);
+      doc.setTextColor(226, 232, 240);
+      doc.setFont("helvetica", "bold");
+      doc.text("CDRRMO – FEWS Incident Log Report", 40, 32);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(126, 146, 180);
+      doc.text("City Disaster Risk Reduction and Management Office · Batangas City", 40, 46);
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Filters: ${filterSummary || "None"}`, 40, 59);
+      doc.text(`Generated: ${new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" })}  ·  ${rows.length} records`, 40, 70);
+      doc.autoTable({
+        startY: 92,
+        head: [["Date", "Time", "Station", "Type", "Message"]],
+        body: rows.map(r => [r.date, r.time, r.station, r.type.toUpperCase(), r.msg]),
+        styles: { fontSize: 8, cellPadding: 5 },
+        headStyles: { fillColor: [17, 29, 53], textColor: [226, 232, 240], fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [245, 248, 252] },
+        columnStyles: {
+          0: { cellWidth: 80 }, 1: { cellWidth: 65 },
+          2: { cellWidth: 55 }, 3: { cellWidth: 55 }, 4: { cellWidth: "auto" },
+        },
+        theme: "grid",
+        didDrawPage: (hookData) => {
+          const pg    = hookData.pageNumber;
+          const total = doc.internal.getNumberOfPages();
+          doc.setFontSize(7);
+          doc.setTextColor(148, 163, 184);
+          doc.text(
+            `CDRRMO FEWS · Batangas City · Page ${pg} of ${total}`,
+            pageW / 2, doc.internal.pageSize.getHeight() - 10,
+            { align: "center" }
+          );
+        },
+      });
+      doc.save(`FEWS_Logs_${Date.now()}.pdf`);
+    };
   };
   if (window.jspdf?.jsPDF) { doIt(); return; }
   load("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")
@@ -1328,235 +1719,6 @@ function DateRangeFilter({ from, to, onChange }) {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── LOGS PAGE ────────────────────────────────────────────────────────────────
-function ExportMenu({ filtered, exporting, setExporting }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef();
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-  const handleExport = (format) => {
-    setOpen(false); setExporting(format);
-    setTimeout(() => {
-      if (format === "xlsx") exportToXLSX(filtered);
-      else exportToPDF(filtered);
-      setTimeout(() => setExporting(null), 1200);
-    }, 80);
-  };
-  return (
-    <div className="export-menu-wrap" ref={ref} style={{ alignSelf: "flex-end" }}>
-      <button className="export-menu-trigger" onClick={() => setOpen(o => !o)} disabled={!!exporting}>
-        {exporting ? <span style={{ fontFamily: "var(--mono)", fontSize: 10 }}>⏳</span> : (
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-            <path d="M7.5 1v9M4 7l3.5 3.5L11 7M2 13h11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        )}
-      </button>
-      {open && (
-        <div className="export-menu-dropdown">
-          {[{ fmt:"xlsx", icon:"📊", label:"Excel (.xlsx)", color:"#22c55e" }, { fmt:"pdf", icon:"📄", label:"PDF (.pdf)", color:"#ef4444" }]
-            .map(({ fmt, icon, label, color }) => (
-              <button key={fmt} className="export-menu-item" onClick={() => handleExport(fmt)}>
-                <span className="export-menu-item-icon" style={{ color }}>{icon}</span>
-                <span className="export-menu-item-label">{label}</span>
-              </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function LogsPage({ token, userRole }) {
-  const [logs, setLogs]                       = useState([]);
-  const [loading, setLoading]                 = useState(true);
-  const [fetchError, setFetchError]           = useState(false);
-  const [search, setSearch]                   = useState("");
-  const [filterStation, setFilterStation]     = useState("All");
-  const [filterType, setFilterType]           = useState("All");
-  const [filterDateRange, setFilterDateRange] = useState({ from: "", to: "" });
-  const [page, setPage]                       = useState(1);
-  const [exporting, setExporting]             = useState(null);
-
-  const allowedTypes = LOG_TYPES_BY_ROLE[userRole] || LOG_TYPES_BY_ROLE["Operator"];
-
-  const fetchLogs = useCallback(() => {
-    if (!token) return;
-    authFetch(`${API_BASE}/logs`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) {
-          const parsed = data.map(parseLog).filter(l => allowedTypes.includes(l.type));
-          setLogs(parsed);
-          setFetchError(false);
-        }
-      })
-      .catch(() => setFetchError(true))
-      .finally(() => setLoading(false));
-  }, [token, userRole]);
-
-  useEffect(() => { fetchLogs(); }, [fetchLogs]);
-
-  useEffect(() => {
-    let logsTimeoutId = null;
-    let logsFailCount = 0;
-
-    const scheduledFetch = () => {
-      if (!token) return;
-      authFetch(`${API_BASE}/logs`, { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json())
-        .then(data => {
-          if (Array.isArray(data)) {
-            const parsed = data.map(parseLog).filter(l => allowedTypes.includes(l.type));
-            setLogs(parsed);
-            setFetchError(false);
-            logsFailCount = 0;
-          }
-        })
-        .catch(() => { logsFailCount += 1; })
-        .finally(() => {
-          const delay = logsFailCount === 0 ? 10000
-                      : logsFailCount === 1 ? 20000
-                      : logsFailCount === 2 ? 40000
-                      : 60000;
-          logsTimeoutId = setTimeout(scheduledFetch, delay);
-        });
-    };
-
-    logsTimeoutId = setTimeout(scheduledFetch, 10000);
-    return () => { if (logsTimeoutId) clearTimeout(logsTimeoutId); };
-  }, [fetchLogs, token, userRole]);
-
-  const allStations = useMemo(() => {
-    const seen = new Set();
-    const order = ["System", "FEWS 1"];
-    logs.forEach(l => seen.add(l.station));
-    const extra = Array.from(seen).filter(s => !order.includes(s));
-    return [...order.filter(s => seen.has(s)), ...extra];
-  }, [logs]);
-
-  const stationOptions = useMemo(() => [
-    { value: "All", label: "All Stations" },
-    ...allStations.map(s => ({ value: s, label: s })),
-  ], [allStations]);
-
-  const typeOptions = useMemo(() => [
-    { value: "All", label: "All Types" },
-    ...allowedTypes.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })),
-  ], [allowedTypes]);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return logs.filter(l => {
-      if (filterStation !== "All" && l.station !== filterStation) return false;
-      if (filterType    !== "All" && l.type    !== filterType)    return false;
-      if (filterDateRange.from) { const f = new Date(filterDateRange.from + "T00:00:00"); if (l.rawDate < f) return false; }
-      if (filterDateRange.to)   { const t = new Date(filterDateRange.to   + "T23:59:59"); if (l.rawDate > t) return false; }
-      if (q && !l.msg.toLowerCase().includes(q) && !l.station.toLowerCase().includes(q) && !l.type.includes(q)) return false;
-      return true;
-    });
-  }, [logs, search, filterStation, filterType, filterDateRange]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
-  const safePage   = Math.min(page, totalPages);
-  const pageRows   = filtered.slice((safePage - 1) * ROWS_PER_PAGE, safePage * ROWS_PER_PAGE);
-
-  const counts = useMemo(() => {
-    const c = {};
-    allowedTypes.forEach(t => { c[t] = 0; });
-    filtered.forEach(l => { if (c[l.type] !== undefined) c[l.type]++; });
-    return c;
-  }, [filtered, allowedTypes]);
-
-  const hasFilters = search || filterStation !== "All" || filterType !== "All" || filterDateRange.from || filterDateRange.to;
-
-  return (
-    <div className="page-body logs-page-body">
-      <div className="page-card" style={{ gap: 12 }}>
-        <div className="logs-filters-row">
-          <div className="logs-search-wrap">
-            <span className="logs-search-icon">🔍</span>
-            <input className="logs-search-input" placeholder="Search logs…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
-            {search && <button className="logs-search-clear" onClick={() => { setSearch(""); setPage(1); }}>✕</button>}
-          </div>
-          <FilterDropdown label="All Stations" options={stationOptions} value={filterStation} onChange={v => { setFilterStation(v); setPage(1); }} />
-          <FilterDropdown label="All Types"    options={typeOptions}    value={filterType}    onChange={v => { setFilterType(v);    setPage(1); }} />
-          <DateRangeFilter from={filterDateRange.from} to={filterDateRange.to} onChange={v => { setFilterDateRange(v); setPage(1); }} />
-          {hasFilters && <button className="logs-reset-icon-btn" onClick={() => { setSearch(""); setFilterStation("All"); setFilterType("All"); setFilterDateRange({ from:"", to:"" }); setPage(1); }} title="Reset">↺</button>}
-          <ExportMenu filtered={filtered} exporting={exporting} setExporting={setExporting} />
-        </div>
-        <div className="logs-stat-bar">
-          {allowedTypes.map(t => {
-            const cfg = LOG_TYPE_CFG[t];
-            return (
-              <div key={t} className="logs-stat-item">
-                <span className="logs-stat-count" style={{ color: cfg.color }}>{counts[t] ?? 0}</span>
-                <span className="logs-stat-label">{cfg.label}</span>
-              </div>
-            );
-          })}
-          <div className="logs-stat-divider" />
-          <div className="logs-stat-item logs-stat-total">
-            <span className="logs-stat-count">{filtered.length}</span>
-            <span className="logs-stat-label">TOTAL</span>
-          </div>
-        </div>
-      </div>
-      <div className="page-card logs-table-card" style={{ gap:0, padding:0, overflow:"hidden", flex:1, minHeight:0 }}>
-        <div className="logs-table-head">
-          <span className="logs-col-date">Date &amp; Time</span>
-          <span className="logs-col-station">Station</span>
-          <span className="logs-col-type">Type</span>
-          <span className="logs-col-msg">Message</span>
-        </div>
-        <div className="logs-table-body">
-          {loading ? (
-            <div className="logs-empty">
-              <div style={{ fontSize:24, marginBottom:8 }}>⏳</div>
-              <div style={{ color:"var(--text-2)", fontWeight:600 }}>Loading logs…</div>
-            </div>
-          ) : fetchError ? (
-            <div className="logs-empty">
-              <div style={{ fontSize:28, marginBottom:8 }}>⚠️</div>
-              <div style={{ color:"var(--red)", fontWeight:600 }}>Failed to load logs</div>
-              <div style={{ color:"var(--text-3)", fontSize:11, marginTop:4 }}>Check your connection and try refreshing</div>
-            </div>
-          ) : pageRows.length === 0 ? (
-            <div className="logs-empty">
-              <div style={{ fontSize:28, marginBottom:8 }}>🔍</div>
-              <div style={{ color:"var(--text-2)", fontWeight:600 }}>No logs match your filters</div>
-            </div>
-          ) : pageRows.map((l, i) => {
-            const cfg = LOG_TYPE_CFG[l.type] || LOG_TYPE_CFG["system"];
-            return (
-              <div key={l.id} className={`logs-row ${i%2===1 ? "logs-row-alt":""}`}>
-                <span className="logs-col-date"><span className="logs-date-day">{l.date}</span><span className="logs-date-time">{l.time}</span></span>
-                <span className="logs-col-station"><span className="logs-station-tag">{l.station.toUpperCase()}</span></span>
-                <span className="logs-col-type"><span className="logs-type-badge" style={{ color:cfg.color, background:cfg.bg, border:`1px solid ${cfg.color}30` }}>{cfg.label}</span></span>
-                <span className="logs-col-msg" style={{ color: l.type==="danger"?"var(--red)":l.type==="warning"?"var(--amber)":"var(--text-2)" }}>{l.msg}</span>
-              </div>
-            );
-          })}
-        </div>
-        <div className="logs-pagination">
-          <span className="logs-page-info">Showing {filtered.length===0?0:(safePage-1)*ROWS_PER_PAGE+1}–{Math.min(safePage*ROWS_PER_PAGE,filtered.length)} of {filtered.length} entries</span>
-          <div className="logs-page-btns">
-            <button className="logs-page-btn" disabled={safePage===1} onClick={() => setPage(1)}>«</button>
-            <button className="logs-page-btn" disabled={safePage===1} onClick={() => setPage(p=>p-1)}>‹</button>
-            {Array.from({length:totalPages},(_,i)=>i+1).filter(p=>p===1||p===totalPages||Math.abs(p-safePage)<=1)
-              .reduce((acc,p,i,arr)=>{if(i>0&&p-arr[i-1]>1)acc.push("…");acc.push(p);return acc;},[])
-              .map((p,i)=>p==="…"?<span key={"el"+i} className="logs-page-ellipsis">…</span>:<button key={p} className={`logs-page-btn ${p===safePage?"logs-page-active":""}`} onClick={()=>setPage(p)}>{p}</button>)}
-            <button className="logs-page-btn" disabled={safePage===totalPages} onClick={() => setPage(p=>p+1)}>›</button>
-            <button className="logs-page-btn" disabled={safePage===totalPages} onClick={() => setPage(totalPages)}>»</button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

@@ -12,7 +12,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-import os, uuid, base64, re, time
+import os, uuid, base64, re, time, threading
 from supabase import create_client
 
 from models import (
@@ -59,6 +59,8 @@ VALID_ROLES = {"Admin", "Operator"}
 
 @app.on_event("startup")
 def startup():
+    threading.Thread(target=cleanup_logs, daemon=True).start()
+    print("[CLEANUP] Log retention thread started (90 days)")
     try:
         init_db()
         conn = get_db()
@@ -391,22 +393,140 @@ def create_log(req: CreateLogRequest, user=Depends(get_current_user)):
         cur.close()
         release_db(conn)
 
+def cleanup_logs():
+    """Delete logs older than 90 days. Runs on startup and every 24h."""
+    while True:
+        conn = None
+        try:
+            conn = get_db()
+            cur  = conn.cursor()
+            try:
+                cur.execute("""
+                    DELETE FROM system_logs
+                    WHERE timestamp < NOW() - INTERVAL '90 days'
+                """)
+                deleted = cur.rowcount
+                conn.commit()
+                if deleted > 0:
+                    print(f"[CLEANUP] Deleted {deleted} logs older than 90 days")
+            finally:
+                cur.close()
+                release_db(conn)
+        except Exception as e:
+            print(f"[CLEANUP] Error: {e}")
+            if conn:
+                release_db(conn)
+        time.sleep(86400)  # 24 hours
+
 @app.get("/logs")
 def get_logs(
-    limit:   int = 200,
-    offset:  int = 0,
+    limit:     int = 30,
+    offset:    int = 0,
+    search:    str = "",
+    station:   str = "",
+    type:      str = "",
+    date_from: str = "",
+    date_to:   str = "",
     user=Depends(get_current_user)
 ):
     conn = get_db()
     cur  = conn.cursor()
     try:
-        cur.execute("""
+        filters = []
+        params  = []
+
+        if search:
+            filters.append("(message ILIKE %s OR station ILIKE %s)")
+            params.extend([f"%{search}%", f"%{search}%"])
+        if station:
+            filters.append("station = %s")
+            params.append(station)
+        if type:
+            filters.append("type = %s")
+            params.append(type)
+        if date_from:
+            filters.append("timestamp >= %s::date")
+            params.append(date_from)
+        if date_to:
+            filters.append("timestamp < (%s::date + INTERVAL '1 day')")
+            params.append(date_to)
+
+        where = ("WHERE " + " AND ".join(filters)) if filters else ""
+
+        # Get counts per type + total
+        cur.execute(f"""
+            SELECT type, COUNT(*) as count
+            FROM system_logs
+            {where}
+            GROUP BY type
+        """, params)
+        type_counts = { row["type"]: row["count"] for row in cur.fetchall() }
+
+        # Get paginated rows
+        cur.execute(f"""
             SELECT id, station, type, message, user_name, timestamp
             FROM system_logs
+            {where}
             ORDER BY timestamp DESC
             LIMIT %s OFFSET %s
-        """, (min(limit, 500), offset))
-        return cur.fetchall()
+        """, params + [min(limit, 100), offset])
+        rows = cur.fetchall()
+
+        return {
+            "rows":   [dict(r) for r in rows],
+            "counts": {
+                "info":    type_counts.get("info",    0),
+                "warning": type_counts.get("warning", 0),
+                "danger":  type_counts.get("danger",  0),
+                "system":  type_counts.get("system",  0),
+                "total":   sum(type_counts.values()),
+            }
+        }
+    finally:
+        cur.close()
+        release_db(conn)
+
+@app.get("/logs/export")
+def export_logs(
+    search:    str = "",
+    station:   str = "",
+    type:      str = "",
+    date_from: str = "",
+    date_to:   str = "",
+    user=Depends(get_current_user)
+):
+    conn = get_db()
+    cur  = conn.cursor()
+    try:
+        filters = []
+        params  = []
+
+        if search:
+            filters.append("(message ILIKE %s OR station ILIKE %s)")
+            params.extend([f"%{search}%", f"%{search}%"])
+        if station:
+            filters.append("station = %s")
+            params.append(station)
+        if type:
+            filters.append("type = %s")
+            params.append(type)
+        if date_from:
+            filters.append("timestamp >= %s::date")
+            params.append(date_from)
+        if date_to:
+            filters.append("timestamp < (%s::date + INTERVAL '1 day')")
+            params.append(date_to)
+
+        where = ("WHERE " + " AND ".join(filters)) if filters else ""
+
+        cur.execute(f"""
+            SELECT id, station, type, message, user_name, timestamp
+            FROM system_logs
+            {where}
+            ORDER BY timestamp DESC
+        """, params)
+        rows = cur.fetchall()
+        return [dict(r) for r in rows]
     finally:
         cur.close()
         release_db(conn)
