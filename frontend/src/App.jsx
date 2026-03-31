@@ -2087,20 +2087,20 @@ const [fews1Live, setFews1Live]                   = useState(null);
   const [sirens, setSirens] = useState({ 1: false });
 
   useEffect(() => {
-      if (!token) return;
-      fetch(`${API_BASE}/units`, { headers: { Authorization: `Bearer ${token}` } })
-          .then(r => r.ok ? r.json() : null)
-          .then(rows => {
-              if (!Array.isArray(rows)) return;
-              const sirenMap = {};
-              rows.forEach(row => {
-                  const f = [{ id: 1, deviceId: "fews_1" }].find(x => "fews" + x.id === row.device_id);
-                  if (f) sirenMap[f.id] = row.siren_state ?? false;
-              });
-              setSirens(prev => ({ ...prev, ...sirenMap }));
-          })
-          .catch(() => {});
-  }, [token]);
+    if (!token) return;
+    fetch(`${API_BASE}/units`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(rows => {
+            if (!Array.isArray(rows)) return;
+            const sirenMap = {};
+            rows.forEach(row => {
+                const f = [{ id: 1, deviceId: "fews_1" }].find(x => "fews_" + x.id === row.device_id);
+                if (f) sirenMap[f.id] = row.siren_state ?? false;
+            });
+            setSirens(prev => ({ ...prev, ...sirenMap }));
+        })
+        .catch(() => {});
+}, [token]);
   const [historyData, setHistoryData] = useState({ positions: [], values: [], exactLabels: [] });
   const [hadDataBefore, setHadDataBefore] = useState(() => {
   return sessionStorage.getItem("fews1_had_data") === "true";
@@ -2492,7 +2492,7 @@ const [fews1Live, setFews1Live]                   = useState(null);
     const toggleSiren = async (id) => {
     if (!can(user.role, "sirenControl")) return;
     const turningOn = !sirens[id];
-    const deviceId = "fews" + id;
+    const deviceId = "fews_" + id;
 
     try {
       await authFetch(`${API_BASE}/siren/${deviceId}`, {
