@@ -1329,7 +1329,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
         if (!Array.isArray(rows)) return;
         setLoadError(false);
         setFewsData(prev => prev.map(f => {
-          const row = rows.find(r => r.device_id === (f.deviceId || "fews" + f.id));
+          const row = rows.find(r => r.device_id === (f.deviceId || "fews_" + f.id));
           if (!row) return f;
           return {
             ...f,
@@ -1341,7 +1341,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
         setThr(prev => {
           const next = { ...prev };
           rows.forEach(row => {
-            const f = allFews.find(f => "fews" + f.id === row.device_id);
+            const f = allFews.find(f => "fews_" + f.id === row.device_id);
             if (f) next[f.id] = { warning: row.threshold_warning, danger: row.threshold_danger };
           });
           return next;
@@ -1349,7 +1349,7 @@ function UnitControlPage({ allFews, fews1Connected, userRole, userName, addLog, 
         setPrevThr(prev => {
           const next = { ...prev };
           rows.forEach(row => {
-            const f = allFews.find(f => "fews" + f.id === row.device_id);
+            const f = allFews.find(f => "fews_" + f.id === row.device_id);
             if (f) next[f.id] = { warning: row.threshold_warning, danger: row.threshold_danger };
           });
           return next;
@@ -2094,7 +2094,7 @@ const [fews1Live, setFews1Live]                   = useState(null);
               if (!Array.isArray(rows)) return;
               const sirenMap = {};
               rows.forEach(row => {
-                  const f = [{ id: 1, deviceId: "fews_1" }].find(x => "fews" + x.id === row.device_id);
+                  const f = [{ id: 1, deviceId: "fews_1" }].find(x => x.deviceId === row.device_id);
                   if (f) sirenMap[f.id] = row.siren_state ?? false;
               });
               setSirens(prev => ({ ...prev, ...sirenMap }));
