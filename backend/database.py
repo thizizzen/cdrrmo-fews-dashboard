@@ -39,6 +39,8 @@ def reset_pool():
     print("[DB] Resetting connection pool...")
     try:
         with _pool_lock:
+            old_pool_id = id(_pool)  # ADD THIS
+            print(f"[DB] Destroying old pool id={old_pool_id}")  # ADD THIS
             try:
                 if _pool is not None:
                     _pool.closeall()
@@ -50,6 +52,7 @@ def reset_pool():
 
         with _pool_lock:
             get_pool()
+            print(f"[DB] New pool id={id(_pool)}")  # ADD THIS
     except Exception as e:
         print(f"[DB] Pool reset failed: {e}")
     finally:
@@ -62,6 +65,7 @@ def get_db():
         with _pool_lock:
             pool = get_pool()
             conn = pool.getconn()
+            print(f"[DB] Got conn id={id(conn)} from pool id={id(pool)}")
         conn.autocommit = False
         with _pool_lock:
             _pool_fail_count = 0
@@ -87,6 +91,7 @@ def get_db():
 def release_db(conn):
     if conn is None:
         return
+    pool = None
     try:
         if not conn.closed:
             try:
@@ -95,9 +100,18 @@ def release_db(conn):
                 pass
         with _pool_lock:
             pool = get_pool()
+            print(f"[DB] Releasing conn id={id(conn)} to pool id={id(pool)}")
+            print(f"[DB] Pool stats: used={len(pool._used)}, free={len(pool._pool)}")
             pool.putconn(conn)
+            print(f"[DB] Released successfully")
     except Exception as e:
         print(f"[DB] Failed to release connection: {e}")
+        print(f"[DB] conn id={id(conn)}, pool id={id(pool) if pool else 'None'}")
+        if pool is not None:
+            try:
+                print(f"[DB] conn in pool._used: {id(conn) in [id(c) for c in pool._used.values()]}")
+            except Exception:
+                pass
         try:
             conn.close()
         except Exception:
